@@ -1,24 +1,14 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""
-CurseBot — updater.py  v1.1.0
-Auto-updater via GitHub API — geen git installatie nodig.
-Fix: wist __pycache__ na update zodat Python niet de oude .pyc draait.
-"""
-import os
-import sys
-import json
-import shutil
-import hashlib
-import urllib.request
-import urllib.error
+"""CurseBot — updater.py  v1.2.0 — auto-updater via GitHub API."""
+import os, sys, json, shutil, hashlib, urllib.request, urllib.error
 from pathlib import Path
 
-REPO      = "Die0uwe/cursebot"
-BRANCH    = "main"
-API_BASE  = f"https://api.github.com/repos/{REPO}"
-RAW_BASE  = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}"
+REPO     = "Die0uwe/cursebot"
+BRANCH   = "main"
+API_BASE = f"https://api.github.com/repos/{REPO}"
+RAW_BASE = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}"
 
 MANAGED_FILES = [
     "bot/__init__.py",
@@ -27,6 +17,8 @@ MANAGED_FILES = [
     "bot/cogs/__init__.py",
     "bot/cogs/admin.py",
     "bot/cogs/curseforge.py",
+    "bot/cogs/onboarding.py",
+    "bot/cogs/watchlist.py",
     "bot/models/__init__.py",
     "bot/models/release.py",
     "bot/services/__init__.py",
@@ -47,48 +39,43 @@ MANAGED_FILES = [
 NEVER_UPDATE = {".env", "cache.db", ".last_commit"}
 
 
-def _get(url: str, timeout: int = 15) -> bytes:
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "CurseBot-Updater/1.1"}
-    )
+def _get(url, timeout=15):
+    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.2"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
 
-def _sha256(data: bytes) -> str:
+def _sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def _file_sha256(path: Path) -> str | None:
+def _file_sha256(path):
     if not path.exists():
         return None
     return _sha256(path.read_bytes())
 
 
-def _wipe_pycache(base_dir: Path) -> int:
-    """Verwijder alle __pycache__ mappen zodat Python niet de oude .pyc laadt."""
+def _wipe_pycache(base_dir):
     count = 0
-    for cache_dir in base_dir.rglob("__pycache__"):
-        if cache_dir.is_dir():
-            shutil.rmtree(cache_dir, ignore_errors=True)
+    for d in base_dir.rglob("__pycache__"):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
             count += 1
     return count
 
 
-def check_and_update(base_dir: Path, verbose: bool = True) -> bool:
-    def log(msg: str):
+def check_and_update(base_dir, verbose=True):
+    def log(msg):
         if verbose:
             print(f"[UPDATER] {msg}", flush=True)
 
     log("Update check gestart...")
 
     try:
-        commit_data = json.loads(
-            _get(f"{API_BASE}/commits/{BRANCH}?per_page=1")
-        )
-        remote_sha = commit_data["sha"][:12]
+        data       = json.loads(_get(f"{API_BASE}/commits/{BRANCH}?per_page=1"))
+        remote_sha = data["sha"][:12]
     except Exception as e:
-        log(f"Kan GitHub niet bereiken: {e} — sla update over.")
+        log(f"GitHub niet bereikbaar: {e}")
         return False
 
     sha_file  = base_dir / ".last_commit"
@@ -99,16 +86,12 @@ def check_and_update(base_dir: Path, verbose: bool = True) -> bool:
         return False
 
     log(f"Nieuwe versie: {local_sha or 'onbekend'} → {remote_sha}")
-
-    updated = []
-    failed  = []
+    updated, failed = [], []
 
     for rel_path in MANAGED_FILES:
         if rel_path in NEVER_UPDATE:
             continue
-
         local_path = base_dir / Path(rel_path)
-
         try:
             remote_data = _get(f"{RAW_BASE}/{rel_path}")
         except urllib.error.HTTPError as e:
@@ -116,7 +99,7 @@ def check_and_update(base_dir: Path, verbose: bool = True) -> bool:
                 failed.append(rel_path)
             continue
         except Exception as e:
-            log(f"  FOUT  {rel_path}: {e}")
+            log(f"  FOUT {rel_path}: {e}")
             failed.append(rel_path)
             continue
 
@@ -131,7 +114,6 @@ def check_and_update(base_dir: Path, verbose: bool = True) -> bool:
     sha_file.write_text(remote_sha)
 
     if updated:
-        # KRITIEK: wis __pycache__ zodat Python niet de oude .pyc draait
         wiped = _wipe_pycache(base_dir)
         log(f"  🗑 {wiped} __pycache__ map(pen) gewist")
         log(f"Update klaar — {len(updated)} bestand(en) bijgewerkt.")
@@ -147,7 +129,7 @@ if __name__ == "__main__":
     sys.exit(42 if changed else 0)
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: updater.py │ v1.1.0 │ Updated │ 2026-06-02  16:45          ║
-# ║  Fix: __pycache__ wissen na update — voorkomt stale bytecode       ║
+# ║  File: updater.py │ v1.2.0 │ 2026-06-02                           ║
+# ║  Fix: onboarding.py + watchlist.py toegevoegd aan MANAGED_FILES    ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

@@ -55,8 +55,21 @@ class Settings(BaseSettings):
             raise ValueError(f"log_level moet een van {allowed} zijn")
         return v
 
+    @field_validator("cf_author_slug")
+    @classmethod
+    def validate_cf_author_slug(cls, v: str) -> str:
+        """Waarschuw als de slug een getal is — dan is waarschijnlijk ID/slug verwisseld."""
+        if v.strip().isdigit():
+            import logging
+            logging.getLogger(__name__).error(
+                f"CF_AUTHOR_SLUG='{v}' is een getal! "
+                f"Dit hoort een naam te zijn zoals 'dieouwe'. "
+                f"Zet CF_AUTHOR_ID={v} en CF_AUTHOR_SLUG=dieouwe in je .env"
+            )
+        return v.strip()
+
 # ╔══════════════════════════════════════════════════════════════════════╗
 # ║  File: config.py │ v1.2.0 │ Updated │ 2026-06-02  16:30           ║
-# ║  Fix: model_config + extra=ignore (pydantic v2) + case_sensitive   ║
+# ║  Fix: slug validator — waarschuwt als slug een getal is            ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
