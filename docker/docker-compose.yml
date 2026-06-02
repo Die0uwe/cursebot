@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  cursebot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - bot_data:/app/cache.db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bot_data:
