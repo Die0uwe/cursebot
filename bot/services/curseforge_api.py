@@ -5,25 +5,13 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-#
-# This work is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
 # ==============================================================================
 """
-CurseBot — services/curseforge_api.py
-Alle CurseForge API-aanroepen voor author project discovery en file polling.
-
-Rate limits CurseForge API (v1):
-  - 300 req/min per key (burst)
-  - 10.000 req/dag
-  Met 10-minuten interval + ~20 projecten = ~144 req/dag — ruim binnen limiet.
-
-FIX v1.0.1: authorSlug is geen echte API-filter — client-side filteren op
-  authors[].username na ophalen van resultaten.
+CurseBot — services/curseforge_api.py  v1.0.2-debug
+FIX: Debug logging toegevoegd om raw authors[] structuur te inspecteren.
 """
 import httpx
+import json
 from datetime import datetime
 from bot.models.release import AddonProject, AddonRelease, ReleaseType
 from bot.utils.retry import async_retry
@@ -40,23 +28,15 @@ class CurseForgeService:
             "x-api-key": api_key,
             "Accept": "application/json",
         }
-        self._game_id = game_id  # 1 = WoW
-
-    # ─── Author discovery ─────────────────────────────────────────────────────
+        self._game_id = game_id
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_author_projects(self, author_slug: str) -> list[AddonProject]:
-        """
-        Haalt alle addons op voor een auteur.
-
-        BELANGRIJK: De CurseForge API filtert NIET correct op authorSlug —
-        de parameter is een hint, geen echte filter. We filteren daarom
-        client-side op authors[].username na het ophalen van resultaten.
-        """
         results: list[AddonProject] = []
         index = 0
         page_size = 50
         author_slug_lower = author_slug.lower()
+        first_batch_logged = False
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             while True:
@@ -75,15 +55,43 @@ class CurseForgeService:
                 data = r.json()
                 batch = data.get("data", [])
 
+                # DEBUG: log de eerste batch raw zodat we de authors structuur zien
+                if not first_batch_logged and batch:
+                    first_batch_logged = True
+                    sample = batch[0]
+                    log.warning(
+                        f"[CF-DEBUG] Eerste project in batch: '{sample.get('name')}' | "
+                        f"authors raw: {json.dumps(sample.get('authors', []))}"
+                    )
+                elif not first_batch_logged:
+                    log.warning(
+                        f"[CF-DEBUG] Batch is LEEG voor authorSlug='{author_slug}' "
+                        f"— CF geeft niks terug voor deze slug!"
+                    )
+                    first_batch_logged = True
+
                 for p in batch:
-                    # FIX: client-side filter — controleer of auteur echt in
-                    # de authors-lijst van dit project staat
-                    authors = [
+                    # Probeer BEIDE veldnamen: 'username' en 'name' (slug vs display)
+                    authors_username = [
                         a.get("username", "").lower()
                         for a in p.get("authors", [])
                     ]
-                    if author_slug_lower not in authors:
-                        continue  # Sla projecten van andere auteurs over
+                    authors_name = [
+                        a.get("name", "").lower()
+                        for a in p.get("authors", [])
+                    ]
+                    authors_slug = [
+                        str(a.get("id", ""))
+                        for a in p.get("authors", [])
+                    ]
+
+                    match = (
+                        author_slug_lower in authors_username or
+                        author_slug_lower in authors_name
+                    )
+
+                    if not match:
+                        continue
 
                     logo = None
                     if p.get("logo") and p["logo"].get("thumbnailUrl"):
@@ -106,24 +114,16 @@ class CurseForgeService:
                 total = pagination.get("totalCount", 0)
                 index += page_size
 
-                # Stop als we alles hebben of de batch leeg is
                 if index >= total or len(batch) == 0:
                     break
 
         log.info(
-            f"[CF] {len(results)} projecten gevonden voor auteur '{author_slug}' "
-            f"(na client-side filter)"
+            f"[CF] {len(results)} projecten gevonden voor auteur '{author_slug}'"
         )
         return results
 
-    # ─── File polling ──────────────────────────────────────────────────────────
-
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_latest_file(self, project_id: int) -> AddonRelease | None:
-        """
-        Haalt de meest recente file op voor een project.
-        Sorteert op fileDate descending — geeft altijd de nieuwste terug.
-        """
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 f"{CF_BASE}/mods/{project_id}/files",
@@ -160,7 +160,6 @@ class CurseForgeService:
 
     @async_retry(retries=2, delay=1.0)
     async def _get_changelog(self, project_id: int, file_id: int) -> str:
-        """Haalt de changelog op voor een specifieke file."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 r = await client.get(
@@ -171,14 +170,11 @@ class CurseForgeService:
                 raw = r.json().get("data", "")
                 return self._strip_html(raw)
         except Exception as exc:
-            log.debug(
-                f"[CF] Changelog ophalen mislukt voor {project_id}/{file_id}: {exc}"
-            )
+            log.debug(f"[CF] Changelog ophalen mislukt voor {project_id}/{file_id}: {exc}")
             return ""
 
     @staticmethod
     def _strip_html(html: str) -> str:
-        """Verwijder HTML-tags voor leesbare Discord-tekst."""
         import re
         text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
         text = re.sub(r"<li>", "• ", text, flags=re.IGNORECASE)
@@ -191,11 +187,11 @@ class CurseForgeService:
 # ╠══════════════════════════════════════════════════════════════════════╣
 # ║  File         : curseforge_api.py                                    ║
 # ║  Role         : Core                                                 ║
-# ║  Version      : 1.0.1                                                ║
+# ║  Version      : 1.0.2-debug                                          ║
 # ║  Created      : 2026-06-02                                           ║
-# ║  Last Updated : 2026-06-02  14:30                                    ║
+# ║  Last Updated : 2026-06-02  14:45                                    ║
 # ║  Status       : Updated                                              ║
-# ║  Notes        : Fix 10k bug — client-side filter op authors.username ║
+# ║  Notes        : Debug logging om authors[] structuur te inspecteren  ║
 # ╠══════════════════════════════════════════════════════════════════════╣
 # ║  Created by Dieouwe                                                  ║
 # ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
