@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CurseBot Setup — Slayer Alliance Edition</title>
+<style>
+  :root {
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --purple-dark: #4c1d95;
+    --cyan: #06b6d4;
+    --cyan-light: #cffafe;
+    --bg: #0f0f13;
+    --bg2: #1a1a24;
+    --bg3: #23232f;
+    --border: rgba(124,58,237,0.3);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 680px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+  .logo-text { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--cyan); }
+  .subtitle { color: var(--muted); font-size: 14px; }
+
+  /* Progress */
+  .progress-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2rem;
+    justify-content: center;
+  }
+  .step-dot {
+    width: 32px; height: 4px;
+    border-radius: 2px;
+    background: var(--bg3);
+    transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--purple); }
+  .step-dot.done { background: var(--green); }
+
+  /* Cards */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: none;
+  }
+  .card.active { display: block; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  .step-num {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  }
+  .card-title { font-size: 17px; font-weight: 600; }
+  .card-desc { color: var(--muted); font-size: 13px; margin-bottom: 1.25rem; line-height: 1.6; }
+
+  /* Form */
+  .field { margin-bottom: 1rem; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 10px 12px;
+    font-family: 'Consolas', monospace;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--purple);
+  }
+  .field input::placeholder { color: #475569; }
+
+  .field-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-hint a { color: var(--cyan); text-decoration: none; }
+  .field-hint a:hover { text-decoration: underline; }
+
+  /* Buttons */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+  }
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+  .btn-back {
+    background: var(--bg3);
+    color: var(--muted);
+  }
+  .btn-back:hover { background: var(--bg); color: var(--text); }
+  .btn-next {
+    background: linear-gradient(135deg, var(--purple), #6d28d9);
+    color: white;
+  }
+  .btn-next:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-save {
+    background: linear-gradient(135deg, var(--green), #059669);
+    color: white;
+  }
+  .btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* Token reveal */
+  .token-wrap { position: relative; }
+  .token-wrap input { padding-right: 44px; }
+  .toggle-eye {
+    position: absolute;
+    right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 18px; padding: 0;
+    transition: color 0.2s;
+  }
+  .toggle-eye:hover { color: var(--text); }
+
+  /* How-to box */
+  .howto {
+    background: rgba(6,182,212,0.08);
+    border: 1px solid rgba(6,182,212,0.2);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .howto-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .howto ol { padding-left: 1.2rem; }
+  .howto li {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    line-height: 1.5;
+  }
+  .howto a { color: var(--cyan); }
+
+  /* Preview */
+  .preview-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #94a3b8;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .preview-box .key { color: var(--cyan); }
+  .preview-box .val { color: #a78bfa; }
+  .preview-box .comment { color: #475569; }
+
+  /* Status indicators */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--bg3);
+  }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.warn { background: var(--yellow); }
+  .status-dot.empty { background: #334155; }
+
+  /* Download section */
+  .download-section { text-align: center; padding: 1rem 0; }
+  .download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--green), #059669);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1rem;
+  }
+  .download-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+  .download-note { font-size: 12px; color: var(--muted); }
+
+  /* Next steps */
+  .next-steps { margin-top: 1.5rem; }
+  .next-step {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--bg3);
+  }
+  .next-step-num {
+    width: 24px; height: 24px;
+    background: var(--purple);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .next-step-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .next-step-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">Curse<span>Bot</span></div>
+    </div>
+    <div class="subtitle">Slayer Alliance Edition — Configuratie</div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="step-dot active" id="dot0"></div>
+    <div class="step-dot" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+    <div class="step-dot" id="dot3"></div>
+  </div>
+
+  <!-- Stap 0: Discord Token -->
+  <div class="card active" id="step0">
+    <div class="card-header">
+      <div class="step-num">1</div>
+      <div class="card-title">Discord Bot Token</div>
+    </div>
+    <div class="howto">
+      <div class="howto-title">Hoe krijg je dit?</div>
+      <ol>
+        <li>Ga naar <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a></li>
+        <li>Klik <strong>New Application</strong> → geef het een naam (bijv. CurseBot)</li>
+        <li>Links klik op <strong>Bot</strong></li>
+        <li>Klik <strong>Reset Token</strong> → kopieer de lange code</li>
+        <li>Scroll naar beneden: zet <strong>Message Content Intent</strong> aan</li>
+      </ol>
+    </div>
+    <div class="field">
+      <label>Discord Bot Token</label>
+      <div class="token-wrap">
+        <input type="password" id="discord_token" placeholder="MTI3NzM4NjQ4..." oninput="updatePreview()">
+        <button class="toggle-eye" onclick="toggleEye('discord_token', this)">👁</button>
+      </div>
+      <div class="field-hint">Begint meestal met MT... of OD...</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-next" onclick="nextStep(0)">Volgende →</button>
+    </div>
+  </div>
+
+  <!-- Stap 1: Channel ID -->
+  <div class="card" id="step1">
+    <div class="card-header">
+      <div class="step-num">2</div>
+      <div class="card-title">Discord Channel ID</div>
+    </div>
+    <div class="howto">
+      <div class="howto-title">Hoe krijg je dit?</div>
+      <ol>
+        <li>Open Discord → Instellingen (tandwieltje links onder)</li>
+        <li>Ga naar <strong>Geavanceerd</strong> → zet <strong>Ontwikkelaarsmodus</strong> aan</li>
+        <li>Ga terug naar je server</li>
+        <li>Rechtermuisklik op het channel waar CurseBot meldingen moet sturen</li>
+        <li>Klik <strong>Kanaal-ID kopiëren</strong></li>
+      </ol>
+    </div>
+    <div class="field">
+      <label>Discord Channel ID</label>
+      <input type="text" id="channel_id" placeholder="1234567890123456789" oninput="updatePreview()">
+      <div class="field-hint">Een lang getal, bijv. 1234567890123456789</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="prevStep(1)">← Terug</button>
+      <button class="btn btn-next" onclick="nextStep(1)">Volgende →</button>
+    </div>
+  </div>
+
+  <!-- Stap 2: CurseForge Key -->
+  <div class="card" id="step2">
+    <div class="card-header">
+      <div class="step-num">3</div>
+      <div class="card-title">CurseForge API Key</div>
+    </div>
+    <div class="howto">
+      <div class="howto-title">Hoe krijg je dit?</div>
+      <ol>
+        <li>Ga naar <a href="https://console.curseforge.com/" target="_blank">console.curseforge.com</a></li>
+        <li>Log in met je CurseForge account</li>
+        <li>Klik op <strong>API Keys</strong> in het menu</li>
+        <li>Klik <strong>Generate API Key</strong></li>
+        <li>Kopieer de key (trek een eventuele oude in!)</li>
+      </ol>
+    </div>
+    <div class="field">
+      <label>CurseForge API Key</label>
+      <div class="token-wrap">
+        <input type="password" id="cf_key" placeholder="$2a$10$..." oninput="updatePreview()">
+        <button class="toggle-eye" onclick="toggleEye('cf_key', this)">👁</button>
+      </div>
+      <div class="field-hint">Begint vaak met $2a$10$...</div>
+    </div>
+    <div class="field">
+      <label>Poll interval (minuten)</label>
+      <select id="interval" onchange="updatePreview()">
+        <option value="5">5 minuten (frequent)</option>
+        <option value="10" selected>10 minuten (aanbevolen)</option>
+        <option value="15">15 minuten (rustig)</option>
+        <option value="30">30 minuten</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="prevStep(2)">← Terug</button>
+      <button class="btn btn-next" onclick="nextStep(2)">Volgende →</button>
+    </div>
+  </div>
+
+  <!-- Stap 3: Samenvatting + Download -->
+  <div class="card" id="step3">
+    <div class="card-header">
+      <div class="step-num">4</div>
+      <div class="card-title">Opslaan en klaar</div>
+    </div>
+
+    <p class="card-desc">Controleer je instellingen hieronder. Klik daarna op "Download .env" — sla het bestand op als <code style="color:var(--cyan)">.env</code> in de cursebot map.</p>
+
+    <div style="margin-bottom: 1rem;">
+      <div class="status-row" id="status0">
+        <div class="status-dot empty" id="sd0"></div>
+        <span id="sl0">Discord Token: niet ingevuld</span>
+      </div>
+      <div class="status-row" id="status1">
+        <div class="status-dot empty" id="sd1"></div>
+        <span id="sl1">Channel ID: niet ingevuld</span>
+      </div>
+      <div class="status-row" id="status2">
+        <div class="status-dot empty" id="sd2"></div>
+        <span id="sl2">CurseForge Key: niet ingevuld</span>
+      </div>
+    </div>
+
+    <div class="preview-box" id="preview">
+      <span class="comment"># CurseBot .env configuratie</span>
+    </div>
+
+    <div class="download-section" style="margin-top: 1.25rem;">
+      <button class="download-btn" onclick="downloadEnv()">
+        ⬇ Download .env bestand
+      </button>
+      <div class="download-note">Sla op als ".env" (met punt, zonder .txt) in de cursebot map</div>
+    </div>
+
+    <div class="next-steps">
+      <div style="font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Daarna:</div>
+      <div class="next-step">
+        <div class="next-step-num">1</div>
+        <div class="next-step-text"><strong>Open CMD (zwart venster)</strong>Windows + R → typ cmd → Enter</div>
+      </div>
+      <div class="next-step">
+        <div class="next-step-num">2</div>
+        <div class="next-step-text"><strong>Navigeer naar de map</strong>cd C:\CurseBot\cursebot</div>
+      </div>
+      <div class="next-step">
+        <div class="next-step-num">3</div>
+        <div class="next-step-text"><strong>Installeer (eenmalig)</strong>python -m venv .venv<br>.venv\Scripts\activate<br>pip install -r requirements.txt</div>
+      </div>
+      <div class="next-step">
+        <div class="next-step-num">4</div>
+        <div class="next-step-text"><strong>Start de bot</strong>Dubbelklik op start_cursebot.bat</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="prevStep(3)">← Terug</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentStep = 0;
+
+function nextStep(from) {
+  document.getElementById('step' + from).classList.remove('active');
+  document.getElementById('dot' + from).classList.remove('active');
+  document.getElementById('dot' + from).classList.add('done');
+  currentStep = from + 1;
+  document.getElementById('step' + currentStep).classList.add('active');
+  document.getElementById('dot' + currentStep).classList.add('active');
+  if (currentStep === 3) updateSummary();
+}
+
+function prevStep(from) {
+  document.getElementById('step' + from).classList.remove('active');
+  document.getElementById('dot' + from).classList.remove('active');
+  currentStep = from - 1;
+  document.getElementById('step' + currentStep).classList.add('active');
+  document.getElementById('dot' + currentStep).classList.remove('done');
+  document.getElementById('dot' + currentStep).classList.add('active');
+}
+
+function toggleEye(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function getValues() {
+  return {
+    token: document.getElementById('discord_token').value.trim(),
+    channel: document.getElementById('channel_id').value.trim(),
+    cfkey: document.getElementById('cf_key').value.trim(),
+    interval: document.getElementById('interval').value,
+  };
+}
+
+function updatePreview() { if (currentStep === 3) updateSummary(); }
+
+function updateSummary() {
+  const v = getValues();
+  const mask = s => s ? s.substring(0, 6) + '...' + s.substring(s.length - 4) : '';
+
+  const items = [
+    { id: 0, label: 'Discord Token', val: v.token },
+    { id: 1, label: 'Channel ID', val: v.channel },
+    { id: 2, label: 'CurseForge Key', val: v.cfkey },
+  ];
+
+  items.forEach(item => {
+    const dot = document.getElementById('sd' + item.id);
+    const lbl = document.getElementById('sl' + item.id);
+    if (item.val) {
+      dot.className = 'status-dot ok';
+      lbl.textContent = item.label + ': ' + mask(item.val);
+    } else {
+      dot.className = 'status-dot warn';
+      lbl.textContent = item.label + ': niet ingevuld ⚠';
+    }
+  });
+
+  document.getElementById('preview').innerHTML =
+    `<span class="comment"># CurseBot .env — Slayer Alliance Edition</span>\n\n` +
+    `<span class="key">DISCORD_TOKEN</span>=<span class="val">${v.token || 'JOUW_TOKEN_HIER'}</span>\n` +
+    `<span class="key">RELEASE_CHANNEL_ID</span>=<span class="val">${v.channel || 'JOUW_CHANNEL_ID'}</span>\n` +
+    `<span class="key">CURSEFORGE_API_KEY</span>=<span class="val">${v.cfkey || 'JOUW_CF_KEY'}</span>\n\n` +
+    `<span class="comment"># Instellingen</span>\n` +
+    `<span class="key">CF_AUTHOR_SLUG</span>=<span class="val">dieouwe</span>\n` +
+    `<span class="key">CHECK_INTERVAL_MINUTES</span>=<span class="val">${v.interval}</span>\n` +
+    `<span class="key">DATABASE_PATH</span>=<span class="val">cache.db</span>\n` +
+    `<span class="key">LOG_LEVEL</span>=<span class="val">INFO</span>\n`;
+}
+
+function downloadEnv() {
+  const v = getValues();
+  const content =
+    `# CurseBot .env — Slayer Alliance Edition\n\n` +
+    `DISCORD_TOKEN=${v.token}\n` +
+    `RELEASE_CHANNEL_ID=${v.channel}\n` +
+    `CURSEFORGE_API_KEY=${v.cfkey}\n\n` +
+    `# Instellingen\n` +
+    `CF_AUTHOR_SLUG=dieouwe\n` +
+    `CHECK_INTERVAL_MINUTES=${v.interval}\n` +
+    `DATABASE_PATH=cache.db\n` +
+    `LOG_LEVEL=INFO\n`;
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '.env';
+  a.click();
+}
+</script>
+</body>
+</html>
