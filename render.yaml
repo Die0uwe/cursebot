@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: cursebot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: RELEASE_CHANNEL_ID
+        sync: false
+      - key: CURSEFORGE_API_KEY
+        sync: false
+      - key: CF_AUTHOR_SLUG
+        value: dieouwe
+      - key: CHECK_INTERVAL_MINUTES
+        value: "10"
+      - key: DATABASE_PATH
+        value: cache.db
+      - key: LOG_LEVEL
+        value: INFO
