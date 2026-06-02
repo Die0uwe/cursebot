@@ -24,17 +24,22 @@ def get_logger(name: str) -> logging.Logger:
             datefmt="%Y-%m-%d %H:%M:%S"
         ))
         logger.addHandler(handler)
+    logger.propagate = False  # FIX: voorkom dubbele logging via root handler
     return logger
 
 
 def configure_root_logger(level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="[%(asctime)s] [%(levelname)-8s] %(name)s — %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-    # discord.py heeft eigen verbose logging — temper dat
+    # Root logger alleen instellen voor libraries die geen eigen logger gebruiken
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+    if not root.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter(
+            "[%(asctime)s] [%(levelname)-8s] %(name)s — %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        ))
+        root.addHandler(handler)
+    # discord.py en httpx eigen verbose logging dempen
     logging.getLogger("discord").setLevel(logging.WARNING)
     logging.getLogger("discord.http").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -42,13 +47,13 @@ def configure_root_logger(level: str = "INFO") -> None:
 # ╔══════════════════════════════════════════════════════════════════════╗
 # ║                         FILE CARD                                    ║
 # ╠══════════════════════════════════════════════════════════════════════╣
-# ║  File         : logger.py                                           ║
-# ║  Role         : Util                                                ║
-# ║  Version      : 1.0.0                                               ║
-# ║  Created      : 2026-06-02                                          ║
-# ║  Last Updated : 2026-06-02  13:45                                     ║
-# ║  Status       : Updated                                             ║
-# ║  Notes        : Gestandaardiseerde logging configuratie             ║
+# ║  File         : logger.py                                            ║
+# ║  Role         : Util                                                 ║
+# ║  Version      : 1.0.1                                                ║
+# ║  Created      : 2026-06-02                                           ║
+# ║  Last Updated : 2026-06-02  14:30                                    ║
+# ║  Status       : Updated                                              ║
+# ║  Notes        : Fix dubbele logging — propagate=False toegevoegd     ║
 # ╠══════════════════════════════════════════════════════════════════════╣
 # ║  Created by Dieouwe                                                  ║
 # ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
