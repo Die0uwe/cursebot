@@ -2,9 +2,19 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — services/curseforge_api.py  v1.2.0
-Fix: gebruik CF_AUTHOR_ID (numeriek) als primary filter — veel betrouwbaarder
-     dan authorSlug. Fallback naar naam-filter als ID niet geconfigureerd.
+CurseBot — services/curseforge_api.py  v1.3.0
+
+STRATEGIE (na research van CF API docs + CFWidget API):
+  De officiële CF API /mods/search heeft GEEN betrouwbare author-filter.
+  authorSlug is gedocumenteerd maar filtert niet correct server-side.
+
+  Oplossing: gebruik CFWidget publieke API om project-IDs op te halen
+  op basis van auteursnaam, dan per project de file status ophalen via CF API.
+
+  CFWidget endpoint: GET https://api.cfwidget.com/author/search/{username}
+  Returns: {"projects": [{"id":..., "name":...}], "username": "...", "id": ...}
+
+  Fallback: directe CF API filter op authors[].id (numeriek) als CFWidget faalt.
 """
 import httpx
 import re
@@ -14,30 +24,131 @@ from bot.utils.retry import async_retry
 from bot.utils.logger import get_logger
 
 log = get_logger(__name__)
-CF_BASE = "https://api.curseforge.com/v1"
+CF_BASE      = "https://api.curseforge.com/v1"
+CFWIDGET_BASE = "https://api.cfwidget.com"
 
 
 class CurseForgeService:
     def __init__(self, api_key: str, game_id: int = 1, author_id: int | None = None):
         self._headers   = {"x-api-key": api_key, "Accept": "application/json"}
         self._game_id   = game_id
-        self._author_id = author_id  # Numerieke CF author ID — meest betrouwbaar
+        self._author_id = author_id
+
+        # KRITIEKE VALIDATIE: author_id mag nooit de slug-waarde zijn
+        if self._author_id is not None:
+            log.info(f"[CF] Init — author_id={self._author_id} (numeriek ✓)")
+        else:
+            log.warning("[CF] Init — author_id=None, fallback naar naam-filter")
+
+    # ─── CFWidget: beste methode ───────────────────────────────────────────────
+
+    async def _get_projects_via_cfwidget(self, author_slug: str) -> list[dict] | None:
+        """
+        Gebruik CFWidget API om project-IDs op te halen voor een auteur.
+        Publieke API, geen key nodig, retourneert exacte projecten.
+        GET https://api.cfwidget.com/author/search/{username}
+        """
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.get(
+                    f"{CFWIDGET_BASE}/author/search/{author_slug}",
+                    headers={"User-Agent": "CurseBot-SlayerAlliance/1.3"},
+                )
+                if r.status_code == 404:
+                    log.warning(f"[CF] CFWidget: auteur '{author_slug}' niet gevonden (404)")
+                    return None
+                r.raise_for_status()
+                data = r.json()
+                projects = data.get("projects", [])
+                log.info(f"[CF] CFWidget: {len(projects)} projecten voor '{author_slug}' "
+                         f"(CF user ID: {data.get('id', 'onbekend')})")
+                return projects
+        except Exception as e:
+            log.warning(f"[CF] CFWidget niet beschikbaar: {e}")
+            return None
+
+    # ─── Hoofd discovery methode ───────────────────────────────────────────────
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_author_projects(self, author_slug: str) -> list[AddonProject]:
         """
         Haalt alle addons op voor een auteur.
 
-        Strategie (in volgorde van betrouwbaarheid):
-        1. Filter op numerieke author_id via authors[].id  (beste)
-        2. Filter op naam/username via authors[].name      (fallback)
+        Volgorde:
+        1. CFWidget API (beste — exacte projectlijst per auteur)
+        2. CF API met author_id filter op authors[].id (als author_id bekend)
+        3. CF API met naam-filter fallback (langzaam maar werkt altijd)
         """
-        results: list[AddonProject] = []
+        # Validatie: waarschuw als author_slug een getal is (configuratiefout)
+        if author_slug.isdigit():
+            log.error(
+                f"[CF] ⚠️  CF_AUTHOR_SLUG='{author_slug}' is een getal! "
+                f"Dit hoort de naam te zijn (bijv. 'dieouwe'). "
+                f"Zet CF_AUTHOR_ID={author_slug} in .env en CF_AUTHOR_SLUG=dieouwe"
+            )
+
+        # ── Methode 1: CFWidget ───────────────────────────────────────────────
+        cfwidget_projects = await self._get_projects_via_cfwidget(author_slug)
+        if cfwidget_projects:
+            return await self._fetch_project_details_batch(cfwidget_projects)
+
+        # ── Methode 2 & 3: CF API directe filter ──────────────────────────────
+        log.info(f"[CF] CFWidget mislukt — gebruik CF API filter "
+                 f"(author_id={self._author_id})")
+        return await self._search_via_cf_api(author_slug)
+
+    async def _fetch_project_details_batch(
+        self, project_stubs: list[dict]
+    ) -> list[AddonProject]:
+        """Haal volledige details op voor een lijst van project-ID's via CF API."""
+        results  = []
+        mod_ids  = [p["id"] for p in project_stubs]
+
+        # POST /v1/mods — batch ophalen (max 50 per request)
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            for i in range(0, len(mod_ids), 50):
+                batch_ids = mod_ids[i:i+50]
+                try:
+                    r = await client.post(
+                        f"{CF_BASE}/mods",
+                        headers={**self._headers, "Content-Type": "application/json"},
+                        json={"modIds": batch_ids},
+                    )
+                    r.raise_for_status()
+                    mods = r.json().get("data", [])
+                    for p in mods:
+                        # Filter op gameId (WoW = 1)
+                        if p.get("gameId") != self._game_id:
+                            continue
+                        logo = None
+                        if p.get("logo") and p["logo"].get("thumbnailUrl"):
+                            logo = p["logo"]["thumbnailUrl"]
+                        results.append(AddonProject(
+                            id=p["id"],
+                            name=p["name"],
+                            slug=p["slug"],
+                            summary=p.get("summary", ""),
+                            url=p.get("links", {}).get(
+                                "websiteUrl",
+                                f"https://www.curseforge.com/wow/addons/{p['slug']}"
+                            ),
+                            logo_url=logo,
+                            downloads=p.get("downloadCount", 0),
+                        ))
+                except Exception as e:
+                    log.error(f"[CF] Batch ophalen mislukt (ids {batch_ids[:3]}...): {e}")
+
+        log.info(f"[CF] {len(results)} WoW projecten geladen via CFWidget+CF API")
+        return results
+
+    async def _search_via_cf_api(self, author_slug: str) -> list[AddonProject]:
+        """Fallback: zoek via CF API met author_id of naam-filter."""
+        results = []
         index   = 0
         page_size = 50
         needle  = author_slug.lower()
-
-        log.info(f"[CF] Discovery gestart — author_id={self._author_id}, slug='{author_slug}'")
+        pages_without_match = 0
+        MAX_EMPTY_PAGES = 10  # Stop na 10 pagina's zonder match
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             while True:
@@ -48,9 +159,6 @@ class CurseForgeService:
                     "sortOrder": "desc",
                     "sortField": "TotalDownloads",
                 }
-                # Voeg authorSlug toe als hint (helpt soms wel)
-                if author_slug:
-                    params["authorSlug"] = author_slug
 
                 r = await client.get(
                     f"{CF_BASE}/mods/search",
@@ -61,27 +169,19 @@ class CurseForgeService:
                 data  = r.json()
                 batch = data.get("data", [])
 
-                # Debug: log eerste batch auteurs
-                if index == 0 and batch:
-                    sample_authors = batch[0].get("authors", [])
-                    log.info(f"[CF-DEBUG] Eerste addon: '{batch[0]['name']}' | "
-                             f"authors: {[(a.get('id'), a.get('name'), a.get('username')) for a in sample_authors]}")
-
                 matched_this_page = 0
                 for p in batch:
                     authors = p.get("authors", [])
-
-                    if self._author_id:
-                        # Methode 1: numerieke ID match — 100% betrouwbaar
+                    if self._author_id and not author_slug.isdigit():
+                        # Methode 2: numerieke ID match
                         match = any(a.get("id") == self._author_id for a in authors)
                     else:
-                        # Methode 2: naam/username match — case-insensitive
+                        # Methode 3: naam match
                         match = any(
                             needle in a.get("name", "").lower() or
                             needle in a.get("username", "").lower()
                             for a in authors
                         )
-
                     if not match:
                         continue
 
@@ -89,40 +189,42 @@ class CurseForgeService:
                     logo = None
                     if p.get("logo") and p["logo"].get("thumbnailUrl"):
                         logo = p["logo"]["thumbnailUrl"]
-
                     results.append(AddonProject(
-                        id=p["id"],
-                        name=p["name"],
-                        slug=p["slug"],
+                        id=p["id"], name=p["name"], slug=p["slug"],
                         summary=p.get("summary", ""),
-                        url=p.get("links", {}).get(
-                            "websiteUrl",
-                            f"https://www.curseforge.com/wow/addons/{p['slug']}"
-                        ),
+                        url=p.get("links", {}).get("websiteUrl",
+                            f"https://www.curseforge.com/wow/addons/{p['slug']}"),
                         logo_url=logo,
                         downloads=p.get("downloadCount", 0),
                     ))
+
+                if matched_this_page == 0:
+                    pages_without_match += 1
+                else:
+                    pages_without_match = 0
+
+                # Beveiliging: stop als we te lang niets vinden
+                if pages_without_match >= MAX_EMPTY_PAGES and results:
+                    log.debug(f"[CF] Early exit: {MAX_EMPTY_PAGES} pagina's zonder match")
+                    break
+                if pages_without_match >= MAX_EMPTY_PAGES and not results:
+                    log.warning(
+                        f"[CF] ⚠️  {MAX_EMPTY_PAGES} pagina's gescand, 0 resultaten. "
+                        f"Controleer CF_AUTHOR_SLUG en CF_AUTHOR_ID in .env"
+                    )
+                    break
 
                 pagination = data.get("pagination", {})
                 total      = pagination.get("totalCount", 0)
                 index     += page_size
 
-                log.debug(f"[CF] Pagina {index//page_size}: {len(batch)} mods, "
-                          f"{matched_this_page} gevonden, totaal: {len(results)}")
-
-                # Stop condities
-                if len(batch) < page_size or index >= min(total, 10000):
+                if len(batch) < page_size or index >= min(total, 5000):
                     break
-                # Early exit: als we resultaten hebben en de downloads snel dalen
-                if results and index > 500:
-                    # Check of laatste addon in batch nog redelijke downloads heeft
-                    last_dl = batch[-1].get("downloadCount", 0) if batch else 0
-                    if last_dl < 100:
-                        log.debug(f"[CF] Early exit op index {index} (downloads < 100)")
-                        break
 
-        log.info(f"[CF] {len(results)} projecten gevonden voor '{author_slug}'")
+        log.info(f"[CF] {len(results)} projecten gevonden via CF API filter")
         return results
+
+    # ─── File polling ──────────────────────────────────────────────────────────
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_latest_file(self, project_id: int) -> AddonRelease | None:
@@ -139,7 +241,7 @@ class CurseForgeService:
             return None
 
         f = files[0]
-        changelog = await self._get_changelog(project_id, f["id"])
+        changelog   = await self._get_changelog(project_id, f["id"])
         uploaded_at = None
         try:
             uploaded_at = datetime.fromisoformat(f["fileDate"].replace("Z", "+00:00"))
@@ -180,7 +282,7 @@ class CurseForgeService:
         return text.strip()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: curseforge_api.py │ v1.2.0 │ Updated │ 2026-06-02  15:45   ║
-# ║  Notes: author_id filter + betere debug logging                     ║
+# ║  File: curseforge_api.py │ v1.3.0 │ Updated │ 2026-06-02  16:15   ║
+# ║  Fix: CFWidget API als primaire discovery + veiligheidscheck slug   ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
