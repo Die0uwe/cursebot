@@ -68,6 +68,13 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
             return
 
         log.debug(f"[MONITOR] Check {len(self._known_projects)} projecten...")
+        # Watchlist items ophalen (andere guilds en addons)
+        watchlist_items = self.cache.watchlist_all()
+        wl_addon_ids    = {item["addon_id"] for item in watchlist_items}
+        own_addon_ids   = {p.id for p in self._known_projects}
+        extra_ids       = wl_addon_ids - own_addon_ids
+        if extra_ids:
+            log.debug(f"[MONITOR] {len(extra_ids)} extra watchlist addons controleren")
         channel = self.bot.get_channel(self.bot.settings.release_channel_id)
         if not channel:
             log.error(f"[MONITOR] Channel {self.bot.settings.release_channel_id} niet gevonden.")
@@ -84,6 +91,12 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
 
                 if cached and int(cached) == release.file_id:
                     continue
+                # Release type filter per guild
+                guild_filters = {
+                    item["guild_id"]: item.get("release_filter","all")
+                    for item in watchlist_items
+                    if item["addon_id"] == project.id
+                }
 
                 log.info(f"[MONITOR] 🎉 Nieuwe release: {project.name} — {release.display_name}")
                 STATS.add_log(f"[RELEASE] {project.name} — {release.display_name}")

@@ -131,6 +131,74 @@ def api_settings_post():
     return jsonify({"saved": list(updated)})
 
 # ── Server ─────────────────────────────────────────────────────────────────────
+
+@app.route("/api/watchlist", methods=["GET"])
+def api_watchlist_get():
+    """Alle watchlist items — voor de UI."""
+    try:
+        from bot.services.cache import CacheService
+        cache = CacheService()
+        guild_id = request.args.get("guild_id", "0")
+        items = cache.watchlist_get(guild_id) if guild_id != "0" else cache.watchlist_all()
+        return jsonify({"items": items, "count": len(items)})
+    except Exception as e:
+        return jsonify({"items": [], "count": 0, "error": str(e)})
+
+@app.route("/api/watchlist/add", methods=["POST"])
+def api_watchlist_add():
+    """Voeg addon toe via UI — zoekt op ID of naam."""
+    data     = request.get_json() or {}
+    guild_id = data.get("guild_id", "0")
+    addon_id = data.get("addon_id")
+    name     = data.get("addon_name", "Onbekend")
+    if not addon_id:
+        return jsonify({"error": "addon_id vereist"}), 400
+    try:
+        from bot.services.cache import CacheService
+        cache = CacheService()
+        added = cache.watchlist_add(
+            guild_id=guild_id,
+            addon_id=int(addon_id),
+            addon_name=data.get("addon_name",""),
+            addon_slug=data.get("addon_slug",""),
+            addon_url=data.get("addon_url",""),
+            author_name=data.get("author_name",""),
+            downloads=data.get("downloads",0),
+            logo_url=data.get("logo_url"),
+            release_filter=data.get("release_filter","all"),
+            added_by="dashboard"
+        )
+        STATS.add_log(f"[UI] Addon {'toegevoegd' if added else 'al in lijst'}: {name}")
+        return jsonify({"added": added, "name": name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/watchlist/remove", methods=["POST"])
+def api_watchlist_remove():
+    data     = request.get_json() or {}
+    guild_id = data.get("guild_id", "0")
+    addon_id = data.get("addon_id")
+    if not addon_id:
+        return jsonify({"error": "addon_id vereist"}), 400
+    try:
+        from bot.services.cache import CacheService
+        cache   = CacheService()
+        removed = cache.watchlist_remove(guild_id, int(addon_id))
+        STATS.add_log(f"[UI] Addon {'verwijderd' if removed else 'niet gevonden'}: ID {addon_id}")
+        return jsonify({"removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/cf/search", methods=["GET"])
+def api_cf_search():
+    """Zoek addons op CurseForge — voor de zoekbalk in de UI."""
+    query = request.args.get("q","").strip()
+    if not query:
+        return jsonify({"results": []})
+    STATS.add_log(f"[UI] CF zoek: '{query}'")
+    return jsonify({"results": [], "query": query,
+                    "note": "Start bot voor live zoekresultaten"})
+
 def run_dashboard(host="0.0.0.0", port=5000):
     if not FLASK_OK:
         print("[DASHBOARD] Flask niet geïnstalleerd — dashboard uitgeschakeld")

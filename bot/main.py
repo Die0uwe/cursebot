@@ -14,7 +14,7 @@ from bot.services.stats import STATS
 
 log = get_logger(__name__)
 
-COGS = ["bot.cogs.curseforge", "bot.cogs.admin"]
+COGS = ["bot.cogs.curseforge", "bot.cogs.admin", "bot.cogs.watchlist"]
 
 
 class CurseBot(commands.Bot):

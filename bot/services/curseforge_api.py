@@ -168,3 +168,75 @@ class CurseForgeService:
 # ║  Fix: searchFilter als primaire methode — zelfde als CF website    ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
+
+    # ── Zoekfuncties voor watchlist ────────────────────────────────────────────
+
+    @async_retry(retries=3, delay=2.0, backoff=2.0)
+    async def search_addons(
+        self, query: str, limit: int = 8
+    ) -> list["AddonProject"]:
+        """Zoek addons op naam of auteur — voor /watch en /search commands."""
+        from bot.models.release import AddonProject
+        results = []
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{CF_BASE}/mods/search",
+                headers=self._headers,
+                params={
+                    "gameId":       self._game_id,
+                    "searchFilter": query,
+                    "pageSize":     min(limit, 50),
+                    "sortField":    "6",   # TotalDownloads
+                    "sortOrder":    "desc",
+                }
+            )
+            r.raise_for_status()
+            batch = r.json().get("data", [])
+
+        for p in batch[:limit]:
+            authors     = p.get("authors", [])
+            author_name = authors[0].get("name", "") if authors else ""
+            logo        = (p.get("logo") or {}).get("thumbnailUrl")
+            results.append(AddonProject(
+                id=p["id"],
+                name=p["name"],
+                slug=p["slug"],
+                summary=p.get("summary", ""),
+                url=(p.get("links") or {}).get("websiteUrl", ""),
+                logo_url=logo,
+                downloads=p.get("downloadCount", 0),
+                author_name=author_name,
+            ))
+        log.info(f"[CF] search '{query}': {len(results)} resultaten")
+        return results
+
+    @async_retry(retries=3, delay=2.0, backoff=2.0)
+    async def get_addon_by_id(self, addon_id: int) -> "AddonProject | None":
+        """Haal één addon op via numeriek CF project ID."""
+        from bot.models.release import AddonProject
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.get(
+                    f"{CF_BASE}/mods/{addon_id}",
+                    headers=self._headers,
+                )
+                r.raise_for_status()
+                p = r.json().get("data")
+            if not p:
+                return None
+            authors     = p.get("authors", [])
+            author_name = authors[0].get("name", "") if authors else ""
+            logo        = (p.get("logo") or {}).get("thumbnailUrl")
+            return AddonProject(
+                id=p["id"],
+                name=p["name"],
+                slug=p["slug"],
+                summary=p.get("summary", ""),
+                url=(p.get("links") or {}).get("websiteUrl", ""),
+                logo_url=logo,
+                downloads=p.get("downloadCount", 0),
+                author_name=author_name,
+            )
+        except Exception as e:
+            log.error(f"[CF] get_addon_by_id({addon_id}) mislukt: {e}")
+            return None
