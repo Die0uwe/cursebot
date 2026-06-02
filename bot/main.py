@@ -1,39 +1,26 @@
 # ==============================================================================
-# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
-#
-# This work is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This work is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
+"""
+CurseBot — main.py  v1.1.0
+Entry point. Start de bot + het web dashboard op poort 5000.
+"""
 import asyncio
 import discord
 from discord.ext import commands
 from bot.config import Settings
 from bot.utils.logger import configure_root_logger, get_logger
+from bot.services.stats import STATS
 
 log = get_logger(__name__)
 
-COGS = [
-    "bot.cogs.curseforge",
-    "bot.cogs.admin",
-]
+COGS = ["bot.cogs.curseforge", "bot.cogs.admin"]
 
 
 class CurseBot(commands.Bot):
     def __init__(self, settings: Settings):
         intents = discord.Intents.default()
-        # message_content niet nodig — we gebruiken alleen slash commands
-        super().__init__(
-            command_prefix="!cb.",        # Prefix commando's uitgeschakeld in de praktijk
-            intents=intents,
-            help_command=None,
-        )
+        super().__init__(command_prefix="!cb.", intents=intents, help_command=None)
         self.settings = settings
 
     async def setup_hook(self):
@@ -41,36 +28,35 @@ class CurseBot(commands.Bot):
             try:
                 await self.load_extension(cog)
                 log.info(f"[BOT] Cog geladen: {cog}")
+                STATS.add_log(f"Cog geladen: {cog}")
             except Exception as exc:
                 log.error(f"[BOT] Cog laden mislukt ({cog}): {exc}", exc_info=True)
+                STATS.add_log(f"[ERROR] Cog mislukt: {cog}: {exc}")
 
-        # Slash commands syncronen
         if self.settings.guild_id:
-            # Dev mode: sync naar specifieke guild (onmiddellijk)
             guild = discord.Object(id=self.settings.guild_id)
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
-            log.info(f"[BOT] Slash commands gesynchroon naar guild {self.settings.guild_id} (dev mode)")
+            log.info(f"[BOT] Slash commands gesync naar guild {self.settings.guild_id}")
         else:
-            # Prod: globale sync (kan tot 1 uur duren)
             await self.tree.sync()
-            log.info("[BOT] Slash commands globaal gesynchroon (kan tot 1 uur duren)")
+            log.info("[BOT] Slash commands globaal gesync")
 
     async def on_ready(self):
+        STATS.guilds    = len(self.guilds)
+        STATS.cf_author = self.settings.cf_author_slug
+        STATS.check_interval_min = self.settings.check_interval_minutes
+        STATS.add_log(f"[BOT] Online als {self.user} | Guilds: {len(self.guilds)}")
         log.info(f"[BOT] Online als {self.user} | Guilds: {len(self.guilds)}")
-        await self.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.watching,
-                name="CurseForge · Slayer Alliance"
-            )
-        )
+        await self.change_presence(activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name="CurseForge · Slayer Alliance"
+        ))
 
-    async def on_application_command_error(self, interaction: discord.Interaction, error: Exception):
-        log.error(f"[BOT] Slash command fout: {error}", exc_info=True)
+    async def on_application_command_error(self, interaction, error):
+        log.error(f"[BOT] Slash fout: {error}", exc_info=True)
         if not interaction.response.is_done():
-            await interaction.response.send_message(
-                f"❌ Onverwachte fout: `{error}`", ephemeral=True
-            )
+            await interaction.response.send_message(f"❌ Fout: `{error}`", ephemeral=True)
 
 
 async def main():
@@ -78,6 +64,17 @@ async def main():
     configure_root_logger(settings.log_level)
     log.info("[BOT] CurseBot start — Slayer Alliance Edition")
     log.info(f"[BOT] Author: {settings.cf_author_slug} | Interval: {settings.check_interval_minutes}m")
+    STATS.add_log("[BOT] CurseBot gestart")
+    STATS.cf_author = settings.cf_author_slug
+
+    # Start het web dashboard in een achtergrond thread
+    try:
+        from dashboard import start_dashboard_thread
+        start_dashboard_thread(port=5000)
+        log.info("[BOT] Dashboard gestart op http://localhost:5000")
+        STATS.add_log("[BOT] Dashboard actief op poort 5000")
+    except Exception as e:
+        log.warning(f"[BOT] Dashboard kon niet starten: {e}")
 
     bot = CurseBot(settings)
     async with bot:
@@ -88,18 +85,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║                         FILE CARD                                    ║
-# ╠══════════════════════════════════════════════════════════════════════╣
-# ║  File         : main.py                                             ║
-# ║  Role         : Core                                                ║
-# ║  Version      : 1.0.0                                               ║
-# ║  Created      : 2026-06-02                                          ║
-# ║  Last Updated : 2026-06-02  13:45                                     ║
-# ║  Status       : Updated                                             ║
-# ║  Notes        : Entry point — CurseBot startup & cog loader         ║
-# ╠══════════════════════════════════════════════════════════════════════╣
-# ║  Created by Dieouwe                                                  ║
-# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
-# ║  📦 curseforge.com/members/dieouwe/projects                         ║
-# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ║  File: main.py │ Role: Core │ v1.1.0 │ Updated │ 2026-06-02 15:30 ║
+# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

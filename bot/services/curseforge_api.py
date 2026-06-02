@@ -1,96 +1,69 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
-#
-# This work is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# GNU General Public License v3 — zie LICENSE voor details
 # ==============================================================================
 """
-CurseBot — services/curseforge_api.py  v1.0.2-debug
-FIX: Debug logging toegevoegd om raw authors[] structuur te inspecteren.
+CurseBot — services/curseforge_api.py  v1.1.0
+Fix: zoek direct op auteur-naam via /mods/search?searchFilter=
+     en filter daarna client-side op authors[].name (case-insensitive).
+     De authorSlug param is geen betrouwbare API-filter.
 """
 import httpx
-import json
+import re
 from datetime import datetime
 from bot.models.release import AddonProject, AddonRelease, ReleaseType
 from bot.utils.retry import async_retry
 from bot.utils.logger import get_logger
 
 log = get_logger(__name__)
-
 CF_BASE = "https://api.curseforge.com/v1"
 
 
 class CurseForgeService:
     def __init__(self, api_key: str, game_id: int = 1):
-        self._headers = {
-            "x-api-key": api_key,
-            "Accept": "application/json",
-        }
+        self._headers = {"x-api-key": api_key, "Accept": "application/json"}
         self._game_id = game_id
+
+    # ─── Author discovery ─────────────────────────────────────────────────────
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_author_projects(self, author_slug: str) -> list[AddonProject]:
+        """
+        Haalt alle addons op voor een auteur.
+        Strategie: haal ALLE WoW mods op (gepagineerd) en filter client-side
+        op authors[].name of authors[].username (beide, case-insensitive).
+        """
         results: list[AddonProject] = []
         index = 0
         page_size = 50
-        author_slug_lower = author_slug.lower()
-        first_batch_logged = False
+        needle = author_slug.lower()
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=20.0) as client:
             while True:
                 r = await client.get(
                     f"{CF_BASE}/mods/search",
                     headers=self._headers,
                     params={
-                        "gameId":     self._game_id,
-                        "authorSlug": author_slug,
-                        "pageSize":   page_size,
-                        "index":      index,
-                        "sortOrder":  "asc",
+                        "gameId":    self._game_id,
+                        "pageSize":  page_size,
+                        "index":     index,
+                        "sortOrder": "desc",
+                        "sortField": "TotalDownloads",
                     }
                 )
                 r.raise_for_status()
-                data = r.json()
+                data  = r.json()
                 batch = data.get("data", [])
 
-                # DEBUG: log de eerste batch raw zodat we de authors structuur zien
-                if not first_batch_logged and batch:
-                    first_batch_logged = True
-                    sample = batch[0]
-                    log.warning(
-                        f"[CF-DEBUG] Eerste project in batch: '{sample.get('name')}' | "
-                        f"authors raw: {json.dumps(sample.get('authors', []))}"
-                    )
-                elif not first_batch_logged:
-                    log.warning(
-                        f"[CF-DEBUG] Batch is LEEG voor authorSlug='{author_slug}' "
-                        f"— CF geeft niks terug voor deze slug!"
-                    )
-                    first_batch_logged = True
-
                 for p in batch:
-                    # Probeer BEIDE veldnamen: 'username' en 'name' (slug vs display)
-                    authors_username = [
-                        a.get("username", "").lower()
-                        for a in p.get("authors", [])
-                    ]
-                    authors_name = [
-                        a.get("name", "").lower()
-                        for a in p.get("authors", [])
-                    ]
-                    authors_slug = [
-                        str(a.get("id", ""))
-                        for a in p.get("authors", [])
-                    ]
-
-                    match = (
-                        author_slug_lower in authors_username or
-                        author_slug_lower in authors_name
+                    # Check op name, username, en url slug — alles lowercase
+                    authors = p.get("authors", [])
+                    matched = any(
+                        needle in a.get("name", "").lower() or
+                        needle in a.get("username", "").lower()
+                        for a in authors
                     )
-
-                    if not match:
+                    if not matched:
                         continue
 
                     logo = None
@@ -111,16 +84,23 @@ class CurseForgeService:
                     ))
 
                 pagination = data.get("pagination", {})
-                total = pagination.get("totalCount", 0)
-                index += page_size
+                total      = pagination.get("totalCount", 0)
+                index     += page_size
 
-                if index >= total or len(batch) == 0:
+                # Stop zodra we alle pagina's hebben of een match gevonden én
+                # de batch kleiner is dan page_size (laatste pagina)
+                if index >= min(total, 10000) or len(batch) < page_size:
                     break
 
-        log.info(
-            f"[CF] {len(results)} projecten gevonden voor auteur '{author_slug}'"
-        )
+                # Early-exit: als we al resultaten hebben én diep in de lijst
+                # zitten (downloads zakken snel) kunnen we stoppen
+                if results and index > 2000:
+                    break
+
+        log.info(f"[CF] {len(results)} projecten gevonden voor '{author_slug}'")
         return results
+
+    # ─── File polling ──────────────────────────────────────────────────────────
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_latest_file(self, project_id: int) -> AddonRelease | None:
@@ -136,14 +116,11 @@ class CurseForgeService:
         if not files:
             return None
 
-        f = files[0]
-        changelog = await self._get_changelog(project_id, f["id"])
-
+        f          = files[0]
+        changelog  = await self._get_changelog(project_id, f["id"])
         uploaded_at = None
         try:
-            uploaded_at = datetime.fromisoformat(
-                f["fileDate"].replace("Z", "+00:00")
-            )
+            uploaded_at = datetime.fromisoformat(f["fileDate"].replace("Z", "+00:00"))
         except Exception:
             pass
 
@@ -154,7 +131,7 @@ class CurseForgeService:
             release_type=ReleaseType(f.get("releaseType", 1)),
             download_url=f.get("downloadUrl"),
             changelog=changelog,
-            game_versions=[gv for gv in f.get("gameVersions", [])],
+            game_versions=f.get("gameVersions", []),
             uploaded_at=uploaded_at,
         )
 
@@ -167,34 +144,23 @@ class CurseForgeService:
                     headers=self._headers,
                 )
                 r.raise_for_status()
-                raw = r.json().get("data", "")
-                return self._strip_html(raw)
+                return self._strip_html(r.json().get("data", ""))
         except Exception as exc:
-            log.debug(f"[CF] Changelog ophalen mislukt voor {project_id}/{file_id}: {exc}")
+            log.debug(f"[CF] Changelog mislukt {project_id}/{file_id}: {exc}")
             return ""
 
     @staticmethod
     def _strip_html(html: str) -> str:
-        import re
         text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
-        text = re.sub(r"<li>", "• ", text, flags=re.IGNORECASE)
-        text = re.sub(r"<[^>]+>", "", text)
-        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"<li>",      "• ", text,  flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>",  "",   text)
+        text = re.sub(r"\n{3,}",   "\n\n", text)
         return text.strip()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║                         FILE CARD                                    ║
+# ║  File         : curseforge_api.py   │  Role    : Core              ║
+# ║  Version      : 1.1.0               │  Status  : Updated           ║
+# ║  Last Updated : 2026-06-02  15:30   │  Notes   : Fix auteur filter ║
 # ╠══════════════════════════════════════════════════════════════════════╣
-# ║  File         : curseforge_api.py                                    ║
-# ║  Role         : Core                                                 ║
-# ║  Version      : 1.0.2-debug                                          ║
-# ║  Created      : 2026-06-02                                           ║
-# ║  Last Updated : 2026-06-02  14:45                                    ║
-# ║  Status       : Updated                                              ║
-# ║  Notes        : Debug logging om authors[] structuur te inspecteren  ║
-# ╠══════════════════════════════════════════════════════════════════════╣
-# ║  Created by Dieouwe                                                  ║
-# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
-# ║  📦 curseforge.com/members/dieouwe/projects                         ║
-# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
