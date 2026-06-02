@@ -2,538 +2,655 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CurseBot · Slayer Alliance</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CurseBot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+:root {
+  --bg:     #0b0d12;
+  --bg2:    #10131a;
+  --bg3:    #161922;
+  --border: rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --gold:   #f5a623;
+  --blue:   #3d9eff;
+  --green:  #2ecc71;
+  --red:    #e74c3c;
+  --purple: #a78bfa;
+  --text:   #cdd6f4;
+  --muted:  #6c7086;
+  --mono:   'JetBrains Mono', monospace;
+  --ui:     'Syne', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:var(--ui);
+  background:var(--bg);
+  color:var(--text);
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(245,166,35,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 80% 80%, rgba(61,158,255,.05) 0%, transparent 60%);
+}
 
-  :root {
-    --bg:        #08090d;
-    --bg2:       #0e1018;
-    --bg3:       #141620;
-    --border:    #1e2235;
-    --purple:    #bf00ff;
-    --blue:      #00dfff;
-    --green:     #00ff88;
-    --gold:      #ffaa00;
-    --red:       #ff3333;
-    --text:      #c8cfe8;
-    --muted:     #4a5070;
-    --font-mono: 'Share Tech Mono', monospace;
-    --font-ui:   'Rajdhani', sans-serif;
-  }
+/* ── WINDOW ── */
+#app{
+  width:520px;
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:14px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  user-select:none;
+  max-height:90vh;
+}
 
-  * { margin:0; padding:0; box-sizing:border-box; }
+/* ── TITLEBAR ── */
+#titlebar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 16px;
+  background:var(--bg3);
+  border-bottom:1px solid var(--border);
+  cursor:grab;
+  flex-shrink:0;
+}
+#titlebar:active{cursor:grabbing}
+.title-left{display:flex;align-items:center;gap:10px}
+.win-icon{
+  width:28px;height:28px;
+  background:linear-gradient(135deg,var(--gold),#e8860e);
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;
+}
+.win-title{font-size:13px;font-weight:700;color:#fff;letter-spacing:.5px}
+.win-sub{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.win-controls{display:flex;gap:6px}
+.wc{
+  width:12px;height:12px;border-radius:50%;cursor:pointer;
+  transition:opacity .15s;
+}
+.wc:hover{opacity:.8}
+.wc-close{background:#ff5f57}
+.wc-min{background:#febc2e}
+.wc-max{background:#28c840}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-ui);
-    font-size: 15px;
-    min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(191,0,255,0.12) 0%, transparent 60%),
-      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(30,34,53,0.4) 40px),
-      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(30,34,53,0.4) 40px);
-  }
+/* ── STATUS BAR ── */
+#statusbar{
+  display:flex;align-items:center;gap:12px;
+  padding:7px 16px;
+  background:rgba(0,0,0,.2);
+  border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:11px;
+  flex-shrink:0;
+}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot-red{background:var(--red)}
+.dot-amber{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#status-text{color:var(--text)}
+#uptime-val{color:var(--muted);margin-left:auto}
 
-  /* ── HEADER ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 32px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(14,16,24,0.95);
-    backdrop-filter: blur(12px);
-    position: sticky; top:0; z-index:100;
-  }
-  .logo {
-    display: flex; align-items: center; gap: 14px;
-  }
-  .logo-icon {
-    width: 38px; height: 38px;
-    background: linear-gradient(135deg, var(--purple), var(--blue));
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 0 20px rgba(191,0,255,0.4);
-  }
-  .logo-text { line-height:1.1; }
-  .logo-text h1 { font-size: 20px; font-weight:700; color:#fff; letter-spacing:1px; }
-  .logo-text span { font-size: 11px; color: var(--muted); letter-spacing:2px; text-transform:uppercase; }
+/* ── TABS ── */
+#tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+  background:var(--bg3);
+  flex-shrink:0;
+}
+.tab{
+  flex:1;padding:9px 6px;
+  font-family:var(--ui);font-size:11px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;
+  color:var(--muted);cursor:pointer;
+  border:none;background:none;
+  border-bottom:2px solid transparent;
+  transition:all .15s;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 
-  .header-right { display:flex; align-items:center; gap:12px; }
-  .status-dot {
-    width:8px; height:8px; border-radius:50%;
-    background: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    animation: pulse 2s infinite;
-  }
-  .status-dot.offline { background: var(--red); box-shadow: 0 0 8px var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+/* ── CONTENT ── */
+#content{
+  flex:1;overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border2) transparent;
+}
 
-  /* ── LAYOUT ── */
-  .container { max-width:1280px; margin:0 auto; padding:28px 32px; }
+/* ── STATS GRID ── */
+.stats-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:1px;
+  background:var(--border);
+  border-bottom:1px solid var(--border);
+}
+.stat{
+  background:var(--bg2);
+  padding:12px 14px;
+}
+.stat-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.stat-val{font-family:var(--mono);font-size:20px;font-weight:600;color:#fff}
+.stat-val.gold{color:var(--gold)}
+.stat-val.blue{color:var(--blue)}
+.stat-val.green{color:var(--green)}
+.stat-val.sm{font-size:13px;padding-top:2px}
 
-  /* ── STAT CARDS ── */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
-    margin-bottom: 28px;
-  }
-  .stat-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px 20px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color .2s, transform .2s;
-  }
-  .stat-card:hover { border-color: var(--purple); transform: translateY(-2px); }
-  .stat-card::before {
-    content:''; position:absolute; top:0; left:0; right:0; height:2px;
-    background: linear-gradient(90deg, var(--purple), var(--blue));
-  }
-  .stat-label { font-size:11px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); margin-bottom:8px; }
-  .stat-value { font-family: var(--font-mono); font-size:26px; color:#fff; }
-  .stat-value.green { color: var(--green); text-shadow: 0 0 12px rgba(0,255,136,.3); }
-  .stat-value.purple { color: var(--purple); text-shadow: 0 0 12px rgba(191,0,255,.3); }
-  .stat-value.blue { color: var(--blue); }
-  .stat-value.gold { color: var(--gold); }
+/* ── SECTION ── */
+.section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.section-title{
+  font-size:10px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);
+  margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;
+}
 
-  /* ── PANELS ── */
-  .panels { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
-  @media(max-width:900px){ .panels{ grid-template-columns:1fr; } }
+/* ── LINKS ROW ── */
+.links-row{display:flex;gap:6px;flex-wrap:wrap}
+.link-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:6px;
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  text-decoration:none;cursor:pointer;border:none;
+  transition:all .15s;
+}
+.link-cf{background:rgba(245,166,35,.12);color:var(--gold);border:1px solid rgba(245,166,35,.25)}
+.link-cf:hover{background:rgba(245,166,35,.22)}
+.link-discord{background:rgba(88,101,242,.2);color:#818cf8;border:1px solid rgba(88,101,242,.3)}
+.link-discord:hover{background:rgba(88,101,242,.35)}
+.link-site{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border2)}
+.link-site:hover{background:rgba(255,255,255,.1)}
 
-  .panel {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .panel-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 20px;
-    border-bottom:1px solid var(--border);
-    background: var(--bg3);
-  }
-  .panel-title {
-    font-size:13px; font-weight:700; text-transform:uppercase;
-    letter-spacing:2px; color: var(--blue);
-  }
-  .panel-body { padding:16px 20px; }
+/* ── PROJECTS LIST ── */
+.project-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+}
+.project-item:last-child{border-bottom:none}
+.proj-logo{
+  width:32px;height:32px;border-radius:6px;
+  background:var(--bg3);flex-shrink:0;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.proj-logo img{width:100%;height:100%;object-fit:cover;border-radius:6px}
+.proj-info{flex:1;min-width:0}
+.proj-name{
+  font-size:13px;font-weight:500;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.proj-dl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+.proj-link{
+  font-family:var(--mono);font-size:10px;color:var(--blue);
+  text-decoration:none;flex-shrink:0;padding:3px 7px;
+  border:1px solid rgba(61,158,255,.2);border-radius:4px;
+}
+.proj-link:hover{background:rgba(61,158,255,.1)}
 
-  /* ── BUTTONS ── */
-  .btn {
-    font-family: var(--font-ui); font-size:13px; font-weight:700;
-    letter-spacing:1px; text-transform:uppercase;
-    border:none; border-radius:6px;
-    padding:8px 18px; cursor:pointer;
-    transition: all .2s;
-    display:inline-flex; align-items:center; gap:7px;
-  }
-  .btn-purple {
-    background: rgba(191,0,255,.15); color:var(--purple);
-    border:1px solid rgba(191,0,255,.3);
-  }
-  .btn-purple:hover { background:rgba(191,0,255,.3); box-shadow:0 0 16px rgba(191,0,255,.3); }
-  .btn-blue {
-    background: rgba(0,223,255,.1); color:var(--blue);
-    border:1px solid rgba(0,223,255,.25);
-  }
-  .btn-blue:hover { background:rgba(0,223,255,.25); }
-  .btn-red {
-    background: rgba(255,51,51,.1); color:var(--red);
-    border:1px solid rgba(255,51,51,.25);
-  }
-  .btn-red:hover { background:rgba(255,51,51,.25); }
-  .btn-green {
-    background: rgba(0,255,136,.1); color:var(--green);
-    border:1px solid rgba(0,255,136,.25);
-  }
-  .btn-green:hover { background:rgba(0,255,136,.25); }
-  .btn:disabled { opacity:.4; cursor:not-allowed; }
+/* ── LOG ── */
+#log-box{
+  font-family:var(--mono);font-size:11px;
+  height:130px;overflow-y:auto;
+  background:rgba(0,0,0,.3);
+  border-radius:6px;padding:8px;
+  line-height:1.7;
+  scrollbar-width:thin;scrollbar-color:var(--border2) transparent;
+}
+.ll{color:var(--text)}
+.ll.warn{color:var(--gold)}
+.ll.err{color:var(--red)}
+.ll.info{color:var(--blue)}
+.ll.ok{color:var(--green)}
 
-  /* ── LOG TERMINAL ── */
-  .log-terminal {
-    background: #060810;
-    border-radius:8px;
-    border:1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size:12px;
-    height:220px;
-    overflow-y:auto;
-    padding:12px;
-    line-height:1.6;
-  }
-  .log-line { color:var(--text); }
-  .log-line.warn { color:var(--gold); }
-  .log-line.error { color:var(--red); }
-  .log-line.info { color:var(--blue); }
-  .log-line.debug { color:var(--muted); }
+/* ── SETTINGS ── */
+.setting-row{
+  display:grid;grid-template-columns:140px 1fr;
+  align-items:center;gap:10px;
+  padding:7px 0;border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{border-bottom:none}
+.s-label{font-size:11px;color:var(--muted);letter-spacing:.5px}
+.s-input,.s-select{
+  font-family:var(--mono);font-size:12px;color:#fff;
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:5px;padding:5px 8px;width:100%;
+}
+.s-input:focus,.s-select:focus{outline:none;border-color:var(--gold)}
+.s-select option{background:var(--bg3)}
 
-  /* ── SETTINGS FORM ── */
-  .settings-grid { display:grid; gap:14px; }
-  .setting-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center; }
-  .setting-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
-  .setting-input, .setting-select {
-    background: var(--bg3); border:1px solid var(--border);
-    color:#fff; border-radius:6px; padding:8px 12px;
-    font-family:var(--font-mono); font-size:13px;
-    width:100%;
-    transition:border-color .2s;
-  }
-  .setting-input:focus, .setting-select:focus {
-    outline:none; border-color:var(--purple);
-    box-shadow:0 0 0 2px rgba(191,0,255,.15);
-  }
+/* ── BUTTONS ── */
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{
+  font-family:var(--ui);font-size:11px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;
+  border-radius:6px;padding:7px 14px;
+  border:none;cursor:pointer;transition:all .15s;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn-gold{background:rgba(245,166,35,.15);color:var(--gold);border:1px solid rgba(245,166,35,.3)}
+.btn-gold:hover{background:rgba(245,166,35,.28)}
+.btn-blue{background:rgba(61,158,255,.12);color:var(--blue);border:1px solid rgba(61,158,255,.25)}
+.btn-blue:hover{background:rgba(61,158,255,.25)}
+.btn-red{background:rgba(231,76,60,.1);color:var(--red);border:1px solid rgba(231,76,60,.25)}
+.btn-red:hover{background:rgba(231,76,60,.22)}
+.btn-green{background:rgba(46,204,113,.1);color:var(--green);border:1px solid rgba(46,204,113,.25)}
+.btn-green:hover{background:rgba(46,204,113,.22)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
 
-  /* ── PROJECTS TABLE ── */
-  .projects-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .projects-table th {
-    text-align:left; padding:8px 12px;
-    color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px;
-    border-bottom:1px solid var(--border);
-  }
-  .projects-table td { padding:10px 12px; border-bottom:1px solid rgba(30,34,53,.5); }
-  .projects-table tr:hover td { background:rgba(191,0,255,.04); }
-  .projects-table a { color:var(--blue); text-decoration:none; }
-  .projects-table a:hover { text-decoration:underline; }
-  .badge {
-    display:inline-block; padding:2px 8px; border-radius:4px;
-    font-size:11px; font-weight:700;
-  }
-  .badge-release { background:rgba(0,255,136,.15); color:var(--green); }
-  .badge-beta    { background:rgba(255,170,0,.15);  color:var(--gold);  }
-  .badge-alpha   { background:rgba(255,51,51,.15);  color:var(--red);   }
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:16px;right:16px;
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:8px;padding:9px 16px;
+  font-family:var(--mono);font-size:12px;
+  transform:translateY(60px);opacity:0;
+  transition:all .25s;pointer-events:none;z-index:999;
+}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-color:rgba(46,204,113,.4);color:var(--green)}
+#toast.err{border-color:rgba(231,76,60,.4);color:var(--red)}
 
-  /* ── UPDATE BANNER ── */
-  .update-banner {
-    display:none;
-    background: linear-gradient(90deg, rgba(0,255,136,.1), rgba(0,223,255,.1));
-    border:1px solid rgba(0,255,136,.3);
-    border-radius:8px; padding:12px 20px; margin-bottom:20px;
-    align-items:center; justify-content:space-between;
-  }
-  .update-banner.show { display:flex; }
-
-  /* ── FOOTER ── */
-  footer {
-    margin-top:40px; padding:20px 32px;
-    border-top:1px solid var(--border);
-    display:flex; justify-content:space-between; align-items:center;
-    font-size:12px; color:var(--muted);
-  }
-  footer a { color:var(--purple); text-decoration:none; }
-
-  /* ── TOAST ── */
-  .toast {
-    position:fixed; bottom:24px; right:24px;
-    background:var(--bg3); border:1px solid var(--border);
-    border-radius:8px; padding:12px 20px;
-    font-size:13px; z-index:999;
-    transform:translateY(100px); opacity:0;
-    transition:all .3s;
-  }
-  .toast.show { transform:translateY(0); opacity:1; }
-  .toast.success { border-color:var(--green); color:var(--green); }
-  .toast.error   { border-color:var(--red);   color:var(--red);   }
+/* ── OFFLINE BANNER ── */
+#offline-banner{
+  background:rgba(231,76,60,.1);
+  border-bottom:1px solid rgba(231,76,60,.2);
+  padding:8px 16px;
+  font-family:var(--mono);font-size:11px;
+  color:var(--red);
+  display:none;
+  align-items:center;gap:8px;
+}
+#offline-banner.show{display:flex}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">⚡</div>
-    <div class="logo-text">
-      <h1>CurseBot</h1>
-      <span>Slayer Alliance Edition</span>
-    </div>
-  </div>
-  <div class="header-right">
-    <span id="status-text" style="font-size:12px;color:var(--muted)">Verbinden...</span>
-    <div id="status-dot" class="status-dot offline"></div>
-  </div>
-</header>
+<div id="app">
 
-<div class="container">
-
-  <!-- Update banner -->
-  <div id="update-banner" class="update-banner">
-    <span>🚀 <strong>Update beschikbaar!</strong> Klik om bij te werken.</span>
-    <button class="btn btn-green" onclick="triggerUpdate()">Nu updaten</button>
-  </div>
-
-  <!-- Stat cards -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Uptime</div>
-      <div class="stat-value green" id="s-uptime">–</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Servers</div>
-      <div class="stat-value purple" id="s-guilds">–</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Getrackte Addons</div>
-      <div class="stat-value blue" id="s-projects">–</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Releases Gevonden</div>
-      <div class="stat-value gold" id="s-releases">–</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Poll Interval</div>
-      <div class="stat-value" id="s-interval">–</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Laatste Check</div>
-      <div class="stat-value" style="font-size:16px" id="s-lastcheck">–</div>
-    </div>
-  </div>
-
-  <!-- Panels row 1 -->
-  <div class="panels">
-
-    <!-- Settings panel -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">⚙️ Instellingen</span>
-        <button class="btn btn-purple" onclick="saveSettings()">Opslaan</button>
+  <!-- Titlebar -->
+  <div id="titlebar">
+    <div class="title-left">
+      <div class="win-icon">⚡</div>
+      <div>
+        <div class="win-title">CurseBot</div>
+        <div class="win-sub">Slayer Alliance Edition</div>
       </div>
-      <div class="panel-body">
-        <div class="settings-grid">
-          <div class="setting-row">
-            <span class="setting-label">Auteur Slug</span>
-            <input class="setting-input" id="cfg-author" placeholder="dieouwe">
+    </div>
+    <div class="win-controls">
+      <div class="wc wc-close" title="Sluiten"></div>
+      <div class="wc wc-min" title="Minimaliseren"></div>
+      <div class="wc wc-max" title="Maximaliseren"></div>
+    </div>
+  </div>
+
+  <!-- Offline banner -->
+  <div id="offline-banner">
+    <span>⚠</span>
+    <span>Bot offline — dashboard toont cached data. Live info niet beschikbaar.</span>
+  </div>
+
+  <!-- Statusbar -->
+  <div id="statusbar">
+    <div id="status-dot" class="dot dot-amber"></div>
+    <span id="status-text">Verbinden...</span>
+    <span id="uptime-val">–</span>
+  </div>
+
+  <!-- Tabs -->
+  <div id="tabs">
+    <button class="tab active" onclick="switchTab('overview')">Overzicht</button>
+    <button class="tab" onclick="switchTab('addons')">Addons</button>
+    <button class="tab" onclick="switchTab('log')">Log</button>
+    <button class="tab" onclick="switchTab('settings')">Instellingen</button>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- TAB: OVERZICHT -->
+    <div id="tab-overview">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-label">Servers</div>
+          <div class="stat-val gold" id="s-guilds">–</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Addons</div>
+          <div class="stat-val blue" id="s-projects">–</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Releases</div>
+          <div class="stat-val green" id="s-releases">–</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Links</div>
+        <div class="links-row">
+          <a class="link-btn link-cf" href="https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&search=DIEOUWE" target="_blank">
+            ⚡ CurseForge
+          </a>
+          <a class="link-btn link-discord" href="https://discord.gg/y8Pu5qsEbQ" target="_blank">
+            💬 Discord
+          </a>
+          <a class="link-btn link-site" href="https://www.dieouwe.nl" target="_blank">
+            🌐 dieouwe.nl
+          </a>
+          <a class="link-btn link-site" href="https://www.slayeralliance.com" target="_blank">
+            ⚔️ Slayer Alliance
+          </a>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          <span>Status</span>
+          <span id="s-sha" style="font-family:var(--mono);font-size:10px;color:var(--muted)">–</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div class="stat" style="border-radius:6px;border:1px solid var(--border)">
+            <div class="stat-label">Interval</div>
+            <div class="stat-val sm" id="s-interval">–</div>
           </div>
-          <div class="setting-row">
-            <span class="setting-label">Poll Interval (min)</span>
-            <input class="setting-input" id="cfg-interval" type="number" min="5" max="60" placeholder="10">
+          <div class="stat" style="border-radius:6px;border:1px solid var(--border)">
+            <div class="stat-label">Laatste check</div>
+            <div class="stat-val sm" id="s-lastcheck">–</div>
           </div>
-          <div class="setting-row">
-            <span class="setting-label">Log Level</span>
-            <select class="setting-select" id="cfg-loglevel">
-              <option value="DEBUG">DEBUG</option>
-              <option value="INFO" selected>INFO</option>
-              <option value="WARNING">WARNING</option>
-              <option value="ERROR">ERROR</option>
-            </select>
+          <div class="stat" style="border-radius:6px;border:1px solid var(--border)">
+            <div class="stat-label">Volgende check</div>
+            <div class="stat-val sm" id="s-nextcheck">–</div>
           </div>
-          <div class="setting-row">
-            <span class="setting-label">AI Changelogs</span>
-            <select class="setting-select" id="cfg-ai">
-              <option value="false">Uitgeschakeld</option>
-              <option value="true">Ingeschakeld</option>
-            </select>
+          <div class="stat" style="border-radius:6px;border:1px solid var(--border)">
+            <div class="stat-label">CF Auteur</div>
+            <div class="stat-val sm gold" id="s-author">–</div>
           </div>
+        </div>
+      </div>
+
+      <div class="section" style="border-bottom:none">
+        <div class="section-title">Acties</div>
+        <div class="btn-row">
+          <button class="btn btn-blue" onclick="doCheck()">↺ CF Check</button>
+          <button class="btn btn-gold" onclick="doUpdate()">↑ Update</button>
+          <button class="btn btn-red" onclick="doReset()">✕ Cache reset</button>
         </div>
       </div>
     </div>
 
-    <!-- Acties panel -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">🎮 Acties</span>
-      </div>
-      <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
-        <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="triggerCheck()">
-          🔄 Forceer CurseForge Check
-        </button>
-        <button class="btn btn-purple" style="width:100%;justify-content:center" onclick="triggerUpdate()">
-          ⬆️ Check voor Bot Update
-        </button>
-        <button class="btn btn-red" style="width:100%;justify-content:center" onclick="resetCache()">
-          🗑️ Reset File ID Cache
-        </button>
-        <div style="border-top:1px solid var(--border);padding-top:12px;font-size:12px;color:var(--muted)">
-          <div>Versie: <span id="s-sha" style="font-family:var(--font-mono);color:var(--blue)">–</span></div>
-          <div style="margin-top:4px">Bijgewerkt: <span id="s-updatetime">–</span></div>
-          <div style="margin-top:4px">CF Auteur: <span id="s-cfauthor" style="color:var(--purple)">–</span></div>
+    <!-- TAB: ADDONS -->
+    <div id="tab-addons" style="display:none">
+      <div class="section" style="border-bottom:none">
+        <div class="section-title">
+          <span>Getrackte addons</span>
+          <span id="proj-count" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
         </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Log terminal -->
-  <div class="panel" style="margin-bottom:20px">
-    <div class="panel-header">
-      <span class="panel-title">📟 Live Log</span>
-      <button class="btn btn-blue" onclick="clearLog()">Wissen</button>
-    </div>
-    <div class="panel-body" style="padding:12px">
-      <div class="log-terminal" id="log-terminal">
-        <div class="log-line info">[DASHBOARD] Verbinding maken met bot...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Projects table -->
-  <div class="panel">
-    <div class="panel-header">
-      <span class="panel-title">📦 Getrackte Addons</span>
-      <span id="project-count" style="font-size:12px;color:var(--muted)">Laden...</span>
-    </div>
-    <div class="panel-body" style="padding:0;overflow-x:auto">
-      <table class="projects-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Addon</th>
-            <th>Downloads</th>
-            <th>CurseForge</th>
-          </tr>
-        </thead>
-        <tbody id="projects-tbody">
-          <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">
+        <div id="projects-list">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:24px 0">
             Wacht op bot data...
-          </td></tr>
-        </tbody>
-      </table>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <a class="link-btn link-cf" style="display:inline-flex" href="https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&search=DIEOUWE" target="_blank">
+            ⚡ Alle addons op CurseForge bekijken
+          </a>
+        </div>
+      </div>
     </div>
-  </div>
 
+    <!-- TAB: LOG -->
+    <div id="tab-log" style="display:none">
+      <div class="section" style="border-bottom:none">
+        <div class="section-title">
+          <span>Live log</span>
+          <button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="clearLog()">Wissen</button>
+        </div>
+        <div id="log-box">
+          <div class="ll info">[DASHBOARD] Verbinding maken...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: INSTELLINGEN -->
+    <div id="tab-settings" style="display:none">
+      <div class="section">
+        <div class="section-title">Configuratie</div>
+        <div class="setting-row">
+          <span class="s-label">Auteur slug</span>
+          <input class="s-input" id="cfg-slug" placeholder="dieouwe">
+        </div>
+        <div class="setting-row">
+          <span class="s-label">Auteur ID</span>
+          <input class="s-input" id="cfg-id" type="number" placeholder="1417946">
+        </div>
+        <div class="setting-row">
+          <span class="s-label">Interval (min)</span>
+          <input class="s-input" id="cfg-interval" type="number" min="5" max="60" placeholder="10">
+        </div>
+        <div class="setting-row">
+          <span class="s-label">Log level</span>
+          <select class="s-select" id="cfg-loglevel">
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO" selected>INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span class="s-label">AI changelogs</span>
+          <select class="s-select" id="cfg-ai">
+            <option value="false">Uit</option>
+            <option value="true">Aan</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-gold" onclick="saveSettings()">Opslaan</button>
+        </div>
+      </div>
+
+      <div class="section" style="border-bottom:none">
+        <div class="section-title">Links & info</div>
+        <div class="links-row">
+          <a class="link-btn link-cf" href="https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&search=DIEOUWE" target="_blank">⚡ CurseForge Addons</a>
+          <a class="link-btn link-discord" href="https://discord.gg/y8Pu5qsEbQ" target="_blank">💬 Discord Server</a>
+          <a class="link-btn link-site" href="https://www.dieouwe.nl" target="_blank">🌐 dieouwe.nl</a>
+          <a class="link-btn link-site" href="https://www.slayeralliance.com" target="_blank">⚔️ slayeralliance.com</a>
+          <a class="link-btn link-site" href="https://github.com/Die0uwe/cursebot" target="_blank">📦 GitHub</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
-<footer>
-  <span>CurseBot · Slayer Alliance Edition · 2026</span>
-  <span>
-    <a href="https://www.dieouwe.nl" target="_blank">dieouwe.nl</a> ·
-    <a href="https://www.slayeralliance.com" target="_blank">slayeralliance.com</a> ·
-    <a href="https://discord.gg/y8Pu5qsEbQ" target="_blank">Discord</a>
-  </span>
-</footer>
-
-<div id="toast" class="toast"></div>
+<div id="toast"></div>
 
 <script>
-const API = '';  // Zelfde origin als Flask
-let logLines = [];
-let projects = [];
+const API = '';
+let offline = false;
 
-function toast(msg, type='success') {
+// ── Drag ─────────────────────────────────────────────────────────────────────
+const app = document.getElementById('app');
+const bar = document.getElementById('titlebar');
+let dragging = false, ox = 0, oy = 0;
+
+bar.addEventListener('mousedown', e => {
+  dragging = true;
+  const r = app.getBoundingClientRect();
+  ox = e.clientX - r.left;
+  oy = e.clientY - r.top;
+  document.body.style.cursor = 'grabbing';
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  let x = e.clientX - ox, y = e.clientY - oy;
+  x = Math.max(0, Math.min(x, window.innerWidth  - app.offsetWidth));
+  y = Math.max(0, Math.min(y, window.innerHeight - app.offsetHeight));
+  app.style.left = x + 'px';
+  app.style.top  = y + 'px';
+  app.style.transform = 'none';
+});
+document.addEventListener('mouseup', () => {
+  dragging = false;
+  document.body.style.cursor = '';
+});
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['overview','addons','log','settings'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', el.getAttribute('onclick').includes(name));
+  });
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='ok') {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = `toast show ${type}`;
-  setTimeout(() => el.className = 'toast', 3000);
+  el.className = 'show ' + type;
+  setTimeout(() => el.className = '', 3000);
 }
-
-function logClass(line) {
-  if (/\[WARNING\]|WARN/.test(line)) return 'warn';
-  if (/\[ERROR\]|ERROR|FOUT/.test(line)) return 'error';
-  if (/\[INFO\]|INFO/.test(line)) return 'info';
-  if (/\[DEBUG\]/.test(line)) return 'debug';
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function logClass(l) {
+  if (/WARNING|WARN/.test(l)) return 'warn';
+  if (/ERROR|FOUT/.test(l))   return 'err';
+  if (/INFO/.test(l))         return 'info';
+  if (/✓|OK|klaar/i.test(l)) return 'ok';
   return '';
 }
-
-function renderLog(lines) {
-  const el = document.getElementById('log-terminal');
-  el.innerHTML = lines.map(l =>
-    `<div class="log-line ${logClass(l)}">${escHtml(l)}</div>`
-  ).join('');
-  el.scrollTop = el.scrollHeight;
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 function clearLog() {
-  logLines = [];
-  renderLog([]);
+  document.getElementById('log-box').innerHTML = '';
 }
 
+// ── Fetch stats ───────────────────────────────────────────────────────────────
 async function fetchStats() {
   try {
-    const r = await fetch('/api/stats');
+    const r = await fetch(API + '/api/stats');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
 
-    document.getElementById('s-uptime').textContent    = d.uptime;
-    document.getElementById('s-guilds').textContent    = d.guilds;
-    document.getElementById('s-projects').textContent  = d.projects_tracked;
-    document.getElementById('s-releases').textContent  = d.releases_detected;
-    document.getElementById('s-interval').textContent  = d.check_interval + 'm';
-    document.getElementById('s-lastcheck').textContent = d.last_check;
-    document.getElementById('s-sha').textContent       = d.last_update_sha.slice(0,8);
-    document.getElementById('s-updatetime').textContent= d.last_update_time;
-    document.getElementById('s-cfauthor').textContent  = d.cf_author || '–';
+    offline = !d.bot_online;
+    document.getElementById('offline-banner').className = offline ? 'show' : '';
+    document.getElementById('status-dot').className    = 'dot ' + (d.bot_online ? 'dot-green' : 'dot-red');
+    document.getElementById('status-text').textContent = d.bot_online ? 'Online' : 'Bot gestopt';
+    document.getElementById('uptime-val').textContent  = 'Uptime: ' + d.uptime;
 
-    // Status dot
-    document.getElementById('status-dot').className = 'status-dot';
-    document.getElementById('status-text').textContent = 'Online';
+    document.getElementById('s-guilds').textContent   = d.guilds;
+    document.getElementById('s-projects').textContent = d.projects_tracked;
+    document.getElementById('s-releases').textContent = d.releases_detected;
+    document.getElementById('s-interval').textContent = d.check_interval + ' min';
+    document.getElementById('s-lastcheck').textContent= d.last_check;
+    document.getElementById('s-nextcheck').textContent= d.next_check;
+    document.getElementById('s-author').textContent   = d.cf_author || '–';
+    document.getElementById('s-sha').textContent      = d.last_update_sha ? d.last_update_sha.slice(0,8) : '–';
 
-    // Update banner
-    document.getElementById('update-banner').className =
-      'update-banner' + (d.update_available ? ' show' : '');
+    if (d.log_lines && d.log_lines.length) {
+      const box = document.getElementById('log-box');
+      box.innerHTML = d.log_lines.map(l =>
+        `<div class="ll ${logClass(l)}">${esc(l)}</div>`
+      ).join('');
+      box.scrollTop = box.scrollHeight;
+    }
 
-    // Log
-    if (d.log_lines && d.log_lines.length) renderLog(d.log_lines);
+    if (d.projects && d.projects.length) renderProjects(d.projects);
 
   } catch(e) {
-    document.getElementById('status-dot').className = 'status-dot offline';
-    document.getElementById('status-text').textContent = 'Offline';
+    document.getElementById('status-dot').className    = 'dot dot-red';
+    document.getElementById('status-text').textContent = 'Dashboard offline';
+    document.getElementById('offline-banner').className = 'show';
   }
 }
 
+function renderProjects(projects) {
+  document.getElementById('proj-count').textContent = projects.length + ' addons';
+  const list = document.getElementById('projects-list');
+  if (!projects.length) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:24px 0">Geen addons gevonden</div>';
+    return;
+  }
+  list.innerHTML = projects.map(p => `
+    <div class="project-item">
+      <div class="proj-logo">
+        ${p.logo_url ? `<img src="${esc(p.logo_url)}" alt="">` : '⚡'}
+      </div>
+      <div class="proj-info">
+        <div class="proj-name">${esc(p.name)}</div>
+        <div class="proj-dl">${p.downloads ? p.downloads.toLocaleString('nl') + ' downloads' : ''}</div>
+      </div>
+      <a class="proj-link" href="${esc(p.url)}" target="_blank">CF ↗</a>
+    </div>
+  `).join('');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
 async function loadSettings() {
   try {
-    const r = await fetch('/api/settings');
+    const r = await fetch(API + '/api/settings');
     const d = await r.json();
-    if (d.CF_AUTHOR_SLUG)           document.getElementById('cfg-author').value   = d.CF_AUTHOR_SLUG;
-    if (d.CHECK_INTERVAL_MINUTES)   document.getElementById('cfg-interval').value  = d.CHECK_INTERVAL_MINUTES;
-    if (d.LOG_LEVEL)                document.getElementById('cfg-loglevel').value  = d.LOG_LEVEL;
-    if (d.SUMMARIZE_CHANGELOGS)     document.getElementById('cfg-ai').value        = d.SUMMARIZE_CHANGELOGS;
+    if (d.CF_AUTHOR_SLUG)         document.getElementById('cfg-slug').value     = d.CF_AUTHOR_SLUG;
+    if (d.CF_AUTHOR_ID)           document.getElementById('cfg-id').value       = d.CF_AUTHOR_ID;
+    if (d.CHECK_INTERVAL_MINUTES) document.getElementById('cfg-interval').value = d.CHECK_INTERVAL_MINUTES;
+    if (d.LOG_LEVEL)              document.getElementById('cfg-loglevel').value  = d.LOG_LEVEL;
+    if (d.SUMMARIZE_CHANGELOGS)   document.getElementById('cfg-ai').value       = d.SUMMARIZE_CHANGELOGS;
   } catch(e) {}
 }
 
 async function saveSettings() {
   const data = {
-    CF_AUTHOR_SLUG:         document.getElementById('cfg-author').value,
+    CF_AUTHOR_SLUG:         document.getElementById('cfg-slug').value,
+    CF_AUTHOR_ID:           document.getElementById('cfg-id').value,
     CHECK_INTERVAL_MINUTES: document.getElementById('cfg-interval').value,
     LOG_LEVEL:              document.getElementById('cfg-loglevel').value,
     SUMMARIZE_CHANGELOGS:   document.getElementById('cfg-ai').value,
   };
   try {
-    const r = await fetch('/api/settings', {
+    const r = await fetch(API + '/api/settings', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(data)
     });
+    await r.json();
+    toast('✓ Instellingen opgeslagen');
+  } catch(e) { toast('✕ Opslaan mislukt', 'err'); }
+}
+
+// ── Acties ────────────────────────────────────────────────────────────────────
+async function doCheck() {
+  toast('↺ CF check getriggerd...');
+  try { await fetch(API + '/api/check', {method:'POST'}); } catch(e) {}
+}
+async function doUpdate() {
+  toast('↑ Update check...');
+  try {
+    const r = await fetch(API + '/api/update', {method:'POST'});
     const d = await r.json();
-    toast('✅ Instellingen opgeslagen — herstart bot om te activeren');
-  } catch(e) { toast('❌ Opslaan mislukt', 'error'); }
+    toast(d.updated ? '✓ Bot bijgewerkt!' : '✓ Al up-to-date');
+  } catch(e) { toast('✕ Update mislukt', 'err'); }
 }
-
-async function triggerUpdate() {
-  toast('⬆️ Update check gestart...');
+async function doReset() {
+  if (!confirm('Cache wissen?')) return;
   try {
-    const r = await fetch('/api/update', {method:'POST'});
-    const d = await r.json();
-    if (d.updated) toast('✅ Bot bijgewerkt! Herstart om te activeren.', 'success');
-    else toast('✅ Al up-to-date!', 'success');
-  } catch(e) { toast('❌ Update check mislukt', 'error'); }
+    await fetch(API + '/api/reset', {method:'POST'});
+    toast('✓ Cache gewist');
+  } catch(e) { toast('✕ Reset mislukt', 'err'); }
 }
 
-async function triggerCheck() {
-  toast('🔄 CF check gestart...');
-  try {
-    await fetch('/api/check', {method:'POST'});
-    toast('✅ Check uitgevoerd');
-  } catch(e) { toast('❌ Check mislukt', 'error'); }
-}
-
-async function resetCache() {
-  if (!confirm('Cache wissen? De bot zal alle huidige releases opnieuw detecteren.')) return;
-  try {
-    await fetch('/api/reset', {method:'POST'});
-    toast('🗑️ Cache gewist', 'success');
-  } catch(e) { toast('❌ Reset mislukt', 'error'); }
-}
-
-// Poll every 5 sec
+// ── Init ──────────────────────────────────────────────────────────────────────
 fetchStats();
 loadSettings();
 setInterval(fetchStats, 5000);

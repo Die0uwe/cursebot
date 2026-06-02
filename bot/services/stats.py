@@ -1,37 +1,31 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""
-CurseBot — services/stats.py  v1.0.0
-Centrale stats collector — verzamelt runtime data voor het dashboard.
-"""
+"""CurseBot — services/stats.py v2.0.0 — Centrale stats collector."""
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
-
-START_TIME = time.time()
+from typing import Optional, Any
 
 
 @dataclass
 class BotStats:
-    # Runtime
-    start_time:         float        = field(default_factory=time.time)
-    guilds:             int          = 0
-    projects_tracked:   int          = 0
-    releases_detected:  int          = 0
-    last_check:         Optional[str] = None
-    next_check:         Optional[str] = None
-    check_interval_min: int          = 10
-    # Update info
-    last_update_sha:    str          = ""
-    last_update_time:   str          = ""
-    update_available:   bool         = False
-    # CF stats
-    cf_author:          str          = ""
-    cf_requests_today:  int          = 0
-    # Log buffer (laatste 50 regels)
-    log_buffer:         list         = field(default_factory=list)
+    start_time:          float        = field(default_factory=time.time)
+    guilds:              int          = 0
+    projects_tracked:    int          = 0
+    releases_detected:   int          = 0
+    last_check:          Optional[str] = None
+    next_check:          Optional[str] = None
+    check_interval_min:  int          = 10
+    last_update_sha:     str          = ""
+    last_update_time:    str          = ""
+    update_available:    bool         = False
+    cf_author:           str          = ""
+    cf_author_id:        Optional[int] = None
+    log_buffer:          list         = field(default_factory=list)
+    project_list:        list         = field(default_factory=list)
+    force_check:         bool         = False
+    bot_online:          bool         = False
 
     def uptime_str(self) -> str:
         secs = int(time.time() - self.start_time)
@@ -52,21 +46,21 @@ class BotStats:
             "last_update_time":  self.last_update_time or "–",
             "update_available":  self.update_available,
             "cf_author":         self.cf_author,
-            "cf_requests_today": self.cf_requests_today,
+            "cf_author_id":      self.cf_author_id,
             "log_lines":         self.log_buffer[-50:],
+            "bot_online":        self.bot_online,
         }
 
     def add_log(self, line: str):
         ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
         self.log_buffer.append(f"[{ts}] {line}")
-        if len(self.log_buffer) > 200:
-            self.log_buffer = self.log_buffer[-200:]
+        if len(self.log_buffer) > 500:
+            self.log_buffer = self.log_buffer[-500:]
 
 
-# Singleton — gedeeld tussen bot en dashboard
 STATS = BotStats()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: stats.py │ Role: Util │ v1.0.0 │ New │ 2026-06-02  15:30   ║
+# ║  File: stats.py │ v2.0.0 │ 2026-06-02                             ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

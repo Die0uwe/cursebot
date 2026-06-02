@@ -2,21 +2,14 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — services/curseforge_api.py  v1.4.0
+CurseBot — services/curseforge_api.py  v2.0.0
 
-ROOT CAUSE ANALYSE (definitief na research CF API docs):
-  1. authors[] heeft {id, name, url} — GEEN username veld
-  2. authorSlug parameter filtert server-side NIET
-  3. author_id filter werkt WEL maar stopt te vroeg (10 pagina's)
-  4. DieOuwe's addons staan NIET in top-500 downloads — moeten verder zoeken
-  5. CFWidget geeft 500/403 errors — onbetrouwbaar
-
-OPLOSSING v1.4.0:
-  - Sorteer op DateCreated DESC (nieuwste eerst) — kleine auteurs verschijnen vroeg
-  - Scan tot 200 pagina's (10.000 mods) maar stop zodra match gevonden én
-    downloads zakken onder drempel
-  - Filter op authors[].id (correct veld) ZONDER username check
-  - Fallback: filter op authors[].name (display naam)
+DEFINITIEVE STRATEGIE (na volledige research):
+  De CF website gebruikt /mods/search?searchFilter=dieouwe
+  Dit is de ENIGE betrouwbare manier om per auteur te zoeken.
+  Resultaten worden daarna gefilterd op authors[].id of authors[].name.
+  
+  authors[] schema: {id: int, name: str, url: str}  (GEEN username!)
 """
 import httpx
 import re
@@ -39,19 +32,16 @@ class CurseForgeService:
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_author_projects(self, author_slug: str) -> list[AddonProject]:
         """
-        Haalt alle WoW addons op voor auteur DieOuwe.
-
-        Strategie: sorteer op DateCreated DESC zodat nieuwe/kleine addons
-        vroeg in de lijst staan. Filter op authors[].id (numeriek).
-        Fallback op authors[].name als ID niet matcht.
+        Zoek addons via searchFilter=<naam> — zelfde als CF website.
+        Filter resultaten op authors[].id of authors[].name.
         """
         results   = []
         index     = 0
         page_size = 50
         needle    = author_slug.lower()
-        found_any = False
 
-        log.info(f"[CF] Discovery: author_id={self._author_id}, slug='{author_slug}'")
+        log.info(f"[CF] Discovery via searchFilter='{author_slug}' "
+                 f"(author_id={self._author_id})")
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             while True:
@@ -60,96 +50,64 @@ class CurseForgeService:
                         f"{CF_BASE}/mods/search",
                         headers=self._headers,
                         params={
-                            "gameId":    self._game_id,
-                            "pageSize":  page_size,
-                            "index":     index,
-                            "sortField": "2",      # 2 = DateCreated — nieuwste eerst
-                            "sortOrder": "desc",
+                            "gameId":       self._game_id,
+                            "searchFilter": author_slug,
+                            "pageSize":     page_size,
+                            "index":        index,
+                            "sortField":    "2",
+                            "sortOrder":    "desc",
                         }
                     )
                     r.raise_for_status()
                     data  = r.json()
                     batch = data.get("data", [])
                 except Exception as e:
-                    log.error(f"[CF] API fout op index {index}: {e}")
+                    log.error(f"[CF] API fout: {e}")
                     break
 
                 if not batch:
-                    log.info(f"[CF] Lege batch op index {index} — klaar")
                     break
 
-                # Debug: eerste batch tonen
-                if index == 0 and batch:
-                    s = batch[0]
-                    log.info(f"[CF] Eerste addon: '{s['name']}' | "
-                             f"authors: {s.get('authors', [])}")
+                if index == 0:
+                    log.info(f"[CF] Eerste resultaat: '{batch[0]['name']}' | "
+                             f"authors: {batch[0].get('authors', [])}")
 
                 for p in batch:
                     authors = p.get("authors", [])
-
-                    # Methode 1: exacte numerieke ID match
-                    if self._author_id:
-                        match = any(
-                            a.get("id") == self._author_id
-                            for a in authors
-                        )
-                    else:
-                        match = False
-
-                    # Methode 2: naam match als fallback
-                    if not match:
-                        match = any(
-                            needle in a.get("name", "").lower()
-                            for a in authors
-                        )
-
+                    # Filter: ID match (best) of naam match (fallback)
+                    match = (
+                        (self._author_id and
+                         any(a.get("id") == self._author_id for a in authors))
+                        or
+                        any(needle in a.get("name", "").lower() for a in authors)
+                    )
                     if not match:
                         continue
 
-                    found_any = True
-                    logo = None
-                    if p.get("logo") and p["logo"].get("thumbnailUrl"):
-                        logo = p["logo"]["thumbnailUrl"]
-
+                    logo = (p.get("logo") or {}).get("thumbnailUrl")
                     results.append(AddonProject(
                         id=p["id"],
                         name=p["name"],
                         slug=p["slug"],
                         summary=p.get("summary", ""),
-                        url=p.get("links", {}).get(
+                        url=(p.get("links") or {}).get(
                             "websiteUrl",
                             f"https://www.curseforge.com/wow/addons/{p['slug']}"
                         ),
                         logo_url=logo,
                         downloads=p.get("downloadCount", 0),
                     ))
-                    log.info(f"[CF] ✓ Gevonden: {p['name']} (id={p['id']})")
+                    log.info(f"[CF] ✓ {p['name']} (id={p['id']}, "
+                             f"dl={p.get('downloadCount',0):,})")
 
                 pagination = data.get("pagination", {})
                 total      = pagination.get("totalCount", 0)
                 index     += page_size
 
-                log.debug(f"[CF] Pagina {index//page_size}/{(total//page_size)+1} "
-                          f"| gevonden: {len(results)}")
-
-                # Stop als alle pagina's gescand zijn
-                if index >= total or len(batch) < page_size:
-                    log.info(f"[CF] Scan klaar — {index} van {total} mods gescand")
+                if index >= total or len(batch) < page_size or index >= 1000:
                     break
 
-                # Stop na 10.000 mods (API limiet)
-                if index >= 10000:
-                    log.warning(f"[CF] API limiet bereikt (10.000 mods)")
-                    break
-
-        if not results:
-            log.warning(
-                f"[CF] ⚠️  Geen projecten gevonden voor author_id={self._author_id} "
-                f"/ slug='{author_slug}'. Controleer je CF author ID."
-            )
-        else:
-            log.info(f"[CF] Totaal: {len(results)} projecten gevonden")
-
+        log.info(f"[CF] Discovery klaar: {len(results)} projecten")
         return results
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
@@ -162,20 +120,16 @@ class CurseForgeService:
             )
             r.raise_for_status()
             files = r.json().get("data", [])
-
         if not files:
             return None
-
         f = files[0]
         changelog   = await self._get_changelog(project_id, f["id"])
         uploaded_at = None
         try:
             uploaded_at = datetime.fromisoformat(
-                f["fileDate"].replace("Z", "+00:00")
-            )
+                f["fileDate"].replace("Z", "+00:00"))
         except Exception:
             pass
-
         return AddonRelease(
             file_id=f["id"],
             file_name=f["fileName"],
@@ -210,7 +164,7 @@ class CurseForgeService:
         return text.strip()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: curseforge_api.py │ v1.4.0 │ Updated │ 2026-06-02  17:00   ║
-# ║  Fix: sortField=DateCreated + volledige scan + juiste authors veld  ║
+# ║  File: curseforge_api.py │ v2.0.0 │ 2026-06-02                    ║
+# ║  Fix: searchFilter als primaire methode — zelfde als CF website    ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
