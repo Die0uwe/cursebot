@@ -253,6 +253,7 @@ class CurseBotApp(ctk.CTk):
             ("addons",      "📦",  "Mijn addons"),
             ("search",      "🔍",  "Zoeken"),
             ("watchlist",   "📋",  "Watchlist"),
+            ("stats",       "📊",  "Statistieken"),
             ("settings",    "⚙️",  "Instellingen"),
         ]
         self.sb_nav_btns = {}
@@ -308,7 +309,7 @@ class CurseBotApp(ctk.CTk):
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         self.tab_frames = {}
-        for tab_id in ["dashboard", "addons", "search", "watchlist", "settings"]:
+        for tab_id in ["dashboard", "addons", "search", "watchlist", "stats", "settings"]:
             frame = ctk.CTkScrollableFrame(
                 self.main_frame, fg_color=C_BG, corner_radius=0,
                 scrollbar_button_color=C_BG3
@@ -321,6 +322,7 @@ class CurseBotApp(ctk.CTk):
         self._build_tab_addons()
         self._build_tab_search()
         self._build_tab_watchlist()
+        self._build_tab_stats()
         self._build_tab_settings()
 
         self.tab_frames["dashboard"].grid()
@@ -341,6 +343,8 @@ class CurseBotApp(ctk.CTk):
             self._load_watchlist_tab()
         if tab_id == "addons":
             self._load_addons_tab()
+        if tab_id == "stats":
+            self._load_stats_tab()
 
     # ── TAB: DASHBOARD (wid: dash_*) ──────────────────────────────────────────
     def _build_tab_dashboard(self):
@@ -749,6 +753,103 @@ class CurseBotApp(ctk.CTk):
                 border_color=C_RED, border_width=1, text_color=C_RED,
                 command=lambda i=item: self._remove_from_watchlist(i)
             ).pack(side="right", padx=(0, 4), pady=8)
+
+
+    # ── TAB: STATISTIEKEN (wid: stat_*) ───────────────────────────────────────
+    def _build_tab_stats(self):
+        f = self.tab_frames["stats"]
+
+        ctk.CTkLabel(
+            f, text="Download statistieken",
+            font=FONT_TITLE, text_color=C_TEXT
+        ).pack(anchor="w", padx=16, pady=(16, 4))
+
+        ctk.CTkLabel(
+            f, text="Groei t.o.v. vorige meting",
+            font=FONT_SMALL, text_color=C_MUTED
+        ).pack(anchor="w", padx=16, pady=(0, 12))
+
+        self.stat_refresh_btn = ctk.CTkButton(
+            f, text="↺ Verversen", font=FONT_SMALL,
+            width=88, height=28,
+            fg_color="transparent", hover_color=C_BG3,
+            border_color=C_BLUE, border_width=1, text_color=C_BLUE,
+            command=self._load_stats_tab
+        )
+        self.stat_refresh_btn.pack(anchor="e", padx=16, pady=(0, 8))
+
+        self.stats_list_frame = ctk.CTkFrame(f, fg_color="transparent")
+        self.stats_list_frame.pack(fill="x", padx=16)
+
+        self.stats_empty_lbl = ctk.CTkLabel(
+            f, text="Start de bot voor statistieken...",
+            font=FONT_BODY, text_color=C_MUTED
+        )
+        self.stats_empty_lbl.pack(pady=40)
+
+    def _load_stats_tab(self):
+        for w in self.stats_list_frame.winfo_children():
+            w.destroy()
+
+        def task():
+            data = api_get("/api/stats")
+            self.after(0, lambda: self._render_stats(data))
+        threading.Thread(target=task, daemon=True).start()
+
+    def _render_stats(self, data):
+        if not data or not data.get("projects"):
+            self.stats_empty_lbl.pack(pady=40)
+            return
+
+        self.stats_empty_lbl.pack_forget()
+        projects = sorted(
+            data.get("projects", []),
+            key=lambda p: p.get("downloads", 0),
+            reverse=True
+        )
+
+        for p in projects:
+            row = ctk.CTkFrame(
+                self.stats_list_frame, fg_color=C_BG2,
+                corner_radius=8, border_width=1, border_color=C_BORDER
+            )
+            row.pack(fill="x", pady=3)
+
+            ctk.CTkLabel(
+                row, text="📊", font=("Segoe UI", 16), width=32, text_color=C_PURPLE
+            ).pack(side="left", padx=(10, 4), pady=8)
+
+            info = ctk.CTkFrame(row, fg_color="transparent")
+            info.pack(side="left", fill="x", expand=True, pady=6)
+
+            ctk.CTkLabel(
+                info, text=p.get("name","?"),
+                font=FONT_BODY, text_color=C_TEXT, anchor="w"
+            ).pack(anchor="w")
+
+            dl = p.get("downloads", 0)
+            ctk.CTkLabel(
+                info, text=f"{dl:,} downloads",
+                font=FONT_MONO_SM, text_color=C_MUTED, anchor="w"
+            ).pack(anchor="w")
+
+            # Progress bar (relatief aan hoogste)
+            max_dl = max((x.get("downloads",1) for x in projects), default=1)
+            pct    = min(int((dl / max_dl) * 100), 100)
+            bar = ctk.CTkProgressBar(
+                info, width=200, height=6,
+                fg_color=C_BG3, progress_color=C_PURPLE
+            )
+            bar.set(pct / 100)
+            bar.pack(anchor="w", pady=(3, 0))
+
+            if p.get("url"):
+                ctk.CTkButton(
+                    row, text="CF ↗", font=FONT_SMALL, width=48, height=26,
+                    fg_color="transparent", hover_color=C_BG3,
+                    border_color=C_BLUE, border_width=1, text_color=C_BLUE,
+                    command=lambda u=p["url"]: webbrowser.open(u)
+                ).pack(side="right", padx=(4, 8), pady=8)
 
     # ── TAB: INSTELLINGEN (wid: cfg_*) ────────────────────────────────────────
     def _build_tab_settings(self):

@@ -19,7 +19,7 @@ from bot.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-DB_VERSION = 2
+DB_VERSION = 3
 
 
 class CacheService:
@@ -83,6 +83,28 @@ class CacheService:
                     cached_at   TEXT    NOT NULL DEFAULT (datetime('now'))
                 )
             """)
+
+            # Download statistieken (NIEUW v3)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS download_stats (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    addon_id   INTEGER NOT NULL,
+                    downloads  INTEGER NOT NULL DEFAULT 0,
+                    recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(addon_id, recorded_at)
+                )
+            """)
+            # Channel config per guild (NIEUW v3)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS channel_config (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id     TEXT    NOT NULL,
+                    channel_type TEXT    NOT NULL DEFAULT 'all',
+                    channel_id   INTEGER NOT NULL,
+                    added_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(guild_id, channel_type)
+                )
+            """)
             self._migrate(conn)
 
     def _migrate(self, conn: sqlite3.Connection):
@@ -92,13 +114,12 @@ class CacheService:
         current = int(row["value"]) if row else 1
 
         if current < 2:
-            log.info("[DB] Migratie v1→v2: watchlist + addon_meta tabellen")
+            log.info("[DB] Migratie v1→v2: watchlist + addon_meta")
+        if current < 3:
+            log.info("[DB] Migratie v2→v3: download_stats + channel_config")
+        if current < 3 or not row:
             conn.execute(
-                "INSERT OR REPLACE INTO db_meta VALUES ('version','2')"
-            )
-        elif not row:
-            conn.execute(
-                "INSERT OR REPLACE INTO db_meta VALUES ('version','2')"
+                "INSERT OR REPLACE INTO db_meta VALUES ('version','3')"
             )
 
     # ── File cache (bestaand) ──────────────────────────────────────────────────
@@ -243,8 +264,111 @@ class CacheService:
             ).fetchone()
         return dict(row) if row else None
 
+
+    # ── Download statistieken ──────────────────────────────────────────────────
+    def stats_record(self, addon_id: int, downloads: int):
+        """Sla huidige download count op voor trend analyse."""
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:00:00")
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT OR IGNORE INTO download_stats(addon_id,downloads,recorded_at)
+                   VALUES(?,?,?)""",
+                (addon_id, downloads, ts)
+            )
+
+    def stats_get_trend(self, addon_id: int, days: int = 7) -> list[dict]:
+        """Haal download trend op voor de laatste N dagen."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT downloads, recorded_at FROM download_stats
+                   WHERE addon_id=?
+                     AND recorded_at >= datetime('now', ?)
+                   ORDER BY recorded_at ASC""",
+                (addon_id, f"-{days} days")
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def stats_growth(self, addon_id: int) -> int:
+        """Downloads verschil laatste 24u. Positief = groei."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT downloads FROM download_stats
+                   WHERE addon_id=?
+                   ORDER BY recorded_at DESC LIMIT 2""",
+                (addon_id,)
+            ).fetchall()
+        if len(rows) < 2:
+            return 0
+        return rows[0]["downloads"] - rows[1]["downloads"]
+
+    def stats_all_totals(self) -> list[dict]:
+        """Totaal downloads per addon — meest recente meting."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT addon_id, downloads, recorded_at
+                   FROM download_stats
+                   WHERE (addon_id, recorded_at) IN (
+                     SELECT addon_id, MAX(recorded_at)
+                     FROM download_stats GROUP BY addon_id
+                   )
+                   ORDER BY downloads DESC"""
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # ── Channel configuratie ───────────────────────────────────────────────────
+    def channel_set(self, guild_id: str, channel_type: str, channel_id: int):
+        """
+        Sla channel ID op voor een bepaald release type.
+        channel_type: 'all' | 'stable' | 'beta' | 'alpha'
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO channel_config(guild_id,channel_type,channel_id)
+                   VALUES(?,?,?)
+                   ON CONFLICT(guild_id,channel_type) DO UPDATE SET
+                     channel_id=excluded.channel_id""",
+                (guild_id, channel_type, channel_id)
+            )
+        log.info(f"[DB] Channel config: guild={guild_id} type={channel_type} ch={channel_id}")
+
+    def channel_get(self, guild_id: str, release_type: str = "all") -> int | None:
+        """
+        Haal channel ID op voor release type.
+        Fallback: 'all' channel als specifiek type niet geconfigureerd.
+        """
+        with self._connect() as conn:
+            # Probeer specifiek type
+            row = conn.execute(
+                "SELECT channel_id FROM channel_config WHERE guild_id=? AND channel_type=?",
+                (guild_id, release_type)
+            ).fetchone()
+            if row:
+                return row["channel_id"]
+            # Fallback naar 'all'
+            row = conn.execute(
+                "SELECT channel_id FROM channel_config WHERE guild_id=? AND channel_type='all'",
+                (guild_id,)
+            ).fetchone()
+        return row["channel_id"] if row else None
+
+    def channel_list(self, guild_id: str) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM channel_config WHERE guild_id=? ORDER BY channel_type",
+                (guild_id,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def channel_remove(self, guild_id: str, channel_type: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM channel_config WHERE guild_id=? AND channel_type=?",
+                (guild_id, channel_type)
+            )
+        return cur.rowcount > 0
+
 # ╔══════════════════════════════════════════════════════════════════════╗
 # ║  File: cache.py │ v2.0.0 │ 2026-06-02                             ║
-# ║  DB v2: watchlist + addon_meta tabellen + migratie runner          ║
+# ║  DB v3: download_stats + channel_config + trend analyse            ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
