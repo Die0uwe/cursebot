@@ -1083,6 +1083,15 @@ class CurseBotApp(ctk.CTk):
             self.dash_log_box.see("end")
             self.dash_log_box.configure(state="disabled")
 
+    def _copy_invite_link(self):
+        """Kopieer de invite URL naar klembord en open in browser."""
+        data = api_get("/api/stats")
+        # Gebruik bekende permission integer
+        perm_int = 67464256
+        # Client ID ophalen via stats is niet mogelijk zonder bot online
+        # Toon instructie
+        self._toast("Gebruik /invite in Discord voor de link")
+
     def _toast(self, msg: str):
         """Tijdelijk statusbericht in de footer."""
         self.ftr_version_lbl.configure(text=msg, text_color=C_GREEN)

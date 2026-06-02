@@ -1,5 +1,22 @@
 # CurseBot Changelog
 
+## v2.1.0 — 2026-06-02
+
+### Onboarding & Permissions
+
+**Nieuw**
+- Automatische onboarding bij guild join — kanaal kiezen via dropdown
+- `/setup` — re-onboarding als de eerste setup gemist werd
+- `/invite` — invite link met juiste permissions (integer: 67464256)
+- `/permissions` — controleer rechten per kanaal
+- Bot stuurt test embed naar gekozen kanaal bij setup
+- Zoekt beste kanaal automatisch (system channel → general → eerste beschikbare)
+- Correcte guild intents ingesteld (`intents.guilds=True`)
+- Onboarding cog als eerste geladen zodat guild join altijd gepakt wordt
+- UI sidebar: bot beheer sectie met invite en setup knoppen
+
+---
+
 ## v2.0.0 — 2026-06-02
 
 ### Sprint 3 — Statistieken · Multi-channel · EXE Packaging
