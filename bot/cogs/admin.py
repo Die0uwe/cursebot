@@ -1,8 +1,16 @@
-"""
-CurseBot — cogs/admin.py
-Admin slash commands: /status, /check, /reset, /projects
-Alleen beschikbaar voor guild administrators.
-"""
+# ==============================================================================
+# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
+#
+# This work is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This work is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# ==============================================================================
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -95,3 +103,20 @@ class AdminCog(commands.Cog, name="Admin"):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))
+
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║                         FILE CARD                                    ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File         : admin.py                                            ║
+# ║  Role         : Core                                                ║
+# ║  Version      : 1.0.0                                               ║
+# ║  Created      : 2026-06-02                                          ║
+# ║  Last Updated : 2026-06-02  13:45                                     ║
+# ║  Status       : Updated                                             ║
+# ║  Notes        : Admin slash commands: /status /check /reset         ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  Created by Dieouwe                                                  ║
+# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+# ║  📦 curseforge.com/members/dieouwe/projects                         ║
+# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ╚══════════════════════════════════════════════════════════════════════╝

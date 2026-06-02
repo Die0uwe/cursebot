@@ -1,3 +1,18 @@
+<!--
+==============================================================================
+Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
+
+This work is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This work is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+==============================================================================
+-->
 # CurseBot — Windows Installatie
 
 ## Wat je nodig hebt
@@ -94,3 +109,22 @@ Open Taakbeheer (Ctrl+Shift+Esc) → zoek `python.exe` → Taak beëindigen
 - **"python is niet herkend"** → Python opnieuw installeren, vink "Add to PATH" aan
 - **"No module named discord"** → Stap 3 opnieuw uitvoeren
 - **Bot start maar doet niks** → Controleer je `.env` bestand, alle drie de waarden ingevuld?
+
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║                         FILE CARD                                    ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  File         : INSTALLATIE_WINDOWS.md                              ║
+║  Role         : Docs                                                ║
+║  Version      : 1.0.0                                               ║
+║  Created      : 2026-06-02                                          ║
+║  Last Updated : 2026-06-02  13:45                                     ║
+║  Status       : Updated                                             ║
+║  Notes        : Windows installatie handleiding                     ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  Created by Dieouwe                                                  ║
+║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+║  📦 curseforge.com/members/dieouwe/projects                         ║
+║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->

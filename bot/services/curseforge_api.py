@@ -1,12 +1,16 @@
-"""
-CurseBot — services/curseforge_api.py
-Alle CurseForge API-aanroepen voor author project discovery en file polling.
-
-Rate limits CurseForge API (v1):
-  - 300 req/min per key (burst)
-  - 10.000 req/dag
-  Met 10-minuten interval + ~20 projecten = ~144 req/dag — ruim binnen limiet.
-"""
+# ==============================================================================
+# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
+#
+# This work is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This work is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# ==============================================================================
 import httpx
 from datetime import datetime
 from bot.models.release import AddonProject, AddonRelease, ReleaseType
@@ -145,3 +149,20 @@ class CurseForgeService:
         text = re.sub(r"<[^>]+>", "", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
+
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║                         FILE CARD                                    ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File         : curseforge_api.py                                   ║
+# ║  Role         : Core                                                ║
+# ║  Version      : 1.0.0                                               ║
+# ║  Created      : 2026-06-02                                          ║
+# ║  Last Updated : 2026-06-02  13:45                                     ║
+# ║  Status       : Updated                                             ║
+# ║  Notes        : CurseForge API client — project discovery & polling ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  Created by Dieouwe                                                  ║
+# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+# ║  📦 curseforge.com/members/dieouwe/projects                         ║
+# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ╚══════════════════════════════════════════════════════════════════════╝

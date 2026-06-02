@@ -1,9 +1,16 @@
-"""
-CurseBot — main.py
-Entry point voor de CurseForge release monitor bot.
-
-Start: python -m bot.main
-"""
+# ==============================================================================
+# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
+#
+# This work is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This work is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# ==============================================================================
 import asyncio
 import discord
 from discord.ext import commands
@@ -79,3 +86,20 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║                         FILE CARD                                    ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File         : main.py                                             ║
+# ║  Role         : Core                                                ║
+# ║  Version      : 1.0.0                                               ║
+# ║  Created      : 2026-06-02                                          ║
+# ║  Last Updated : 2026-06-02  13:45                                     ║
+# ║  Status       : Updated                                             ║
+# ║  Notes        : Entry point — CurseBot startup & cog loader         ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  Created by Dieouwe                                                  ║
+# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+# ║  📦 curseforge.com/members/dieouwe/projects                         ║
+# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ╚══════════════════════════════════════════════════════════════════════╝

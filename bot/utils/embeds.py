@@ -1,14 +1,16 @@
-"""
-CurseBot — utils/embeds.py
-Discord embed builders — Slayer Alliance kleurschema.
-
-Kleuren:
-  🟢 Release : #00FF88  (neon groen)
-  🟡 Beta    : #FFAA00  (goud-oranje)
-  🔴 Alpha   : #FF3333  (rood)
-  ℹ️ Info    : #00DFFF  (neon blauw — Slayer Alliance accent)
-  ⚙️ System  : #BF00FF  (neon paars — Slayer Alliance primair)
-"""
+# ==============================================================================
+# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
+#
+# This work is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This work is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# ==============================================================================
 import discord
 from datetime import datetime, timezone
 from bot.models.release import AddonProject, AddonRelease
@@ -134,3 +136,20 @@ def build_error_embed(title: str, description: str) -> discord.Embed:
     embed.set_footer(text="CurseBot Error")
     embed.timestamp = datetime.now(timezone.utc)
     return embed
+
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║                         FILE CARD                                    ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File         : embeds.py                                           ║
+# ║  Role         : Util                                                ║
+# ║  Version      : 1.0.0                                               ║
+# ║  Created      : 2026-06-02                                          ║
+# ║  Last Updated : 2026-06-02  13:45                                     ║
+# ║  Status       : Updated                                             ║
+# ║  Notes        : Discord embed builders — Slayer Alliance kleurschema║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  Created by Dieouwe                                                  ║
+# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+# ║  📦 curseforge.com/members/dieouwe/projects                         ║
+# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ╚══════════════════════════════════════════════════════════════════════╝
