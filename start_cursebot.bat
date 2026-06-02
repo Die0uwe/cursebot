@@ -2,9 +2,7 @@
 title CurseBot - Slayer Alliance Edition
 color 0A
 cd /d "%~dp0"
-
-:: Activeer de Python omgeving
-call .venv\Scripts\activate
+call .venv\Scripts\activate.bat 2>nul
 
 :loop
 echo.
@@ -12,21 +10,19 @@ echo  ========================================
 echo   CurseBot - Slayer Alliance Edition
 echo   Gestart op %date% om %time%
 echo  ========================================
-echo.
 
-:: Auto-update check via GitHub API
-echo [UPDATER] Update check...
 python updater.py
 if %errorlevel% == 42 (
-    echo [UPDATER] Bestanden bijgewerkt - herstart bot...
-    echo.
+    for /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
     goto loop
 )
 
-:: Start de bot
+:: Start de native UI in een apart venster
+start "CurseBot UI" python -m ui.app
+
+:: Start de bot (met Flask dashboard op achtergrond)
 python -m bot.main
 
-echo.
 echo [CurseBot] Bot gestopt. Herstart over 5 seconden...
 timeout /t 5 /nobreak >nul
 goto loop
