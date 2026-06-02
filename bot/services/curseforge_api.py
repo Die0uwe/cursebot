@@ -1,12 +1,10 @@
 # ==============================================================================
-# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
-# GNU General Public License v3 — zie LICENSE voor details
+# Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — services/curseforge_api.py  v1.1.0
-Fix: zoek direct op auteur-naam via /mods/search?searchFilter=
-     en filter daarna client-side op authors[].name (case-insensitive).
-     De authorSlug param is geen betrouwbare API-filter.
+CurseBot — services/curseforge_api.py  v1.2.0
+Fix: gebruik CF_AUTHOR_ID (numeriek) als primary filter — veel betrouwbaarder
+     dan authorSlug. Fallback naar naam-filter als ID niet geconfigureerd.
 """
 import httpx
 import re
@@ -20,52 +18,74 @@ CF_BASE = "https://api.curseforge.com/v1"
 
 
 class CurseForgeService:
-    def __init__(self, api_key: str, game_id: int = 1):
-        self._headers = {"x-api-key": api_key, "Accept": "application/json"}
-        self._game_id = game_id
-
-    # ─── Author discovery ─────────────────────────────────────────────────────
+    def __init__(self, api_key: str, game_id: int = 1, author_id: int | None = None):
+        self._headers   = {"x-api-key": api_key, "Accept": "application/json"}
+        self._game_id   = game_id
+        self._author_id = author_id  # Numerieke CF author ID — meest betrouwbaar
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_author_projects(self, author_slug: str) -> list[AddonProject]:
         """
         Haalt alle addons op voor een auteur.
-        Strategie: haal ALLE WoW mods op (gepagineerd) en filter client-side
-        op authors[].name of authors[].username (beide, case-insensitive).
+
+        Strategie (in volgorde van betrouwbaarheid):
+        1. Filter op numerieke author_id via authors[].id  (beste)
+        2. Filter op naam/username via authors[].name      (fallback)
         """
         results: list[AddonProject] = []
-        index = 0
+        index   = 0
         page_size = 50
-        needle = author_slug.lower()
+        needle  = author_slug.lower()
+
+        log.info(f"[CF] Discovery gestart — author_id={self._author_id}, slug='{author_slug}'")
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             while True:
+                params = {
+                    "gameId":    self._game_id,
+                    "pageSize":  page_size,
+                    "index":     index,
+                    "sortOrder": "desc",
+                    "sortField": "TotalDownloads",
+                }
+                # Voeg authorSlug toe als hint (helpt soms wel)
+                if author_slug:
+                    params["authorSlug"] = author_slug
+
                 r = await client.get(
                     f"{CF_BASE}/mods/search",
                     headers=self._headers,
-                    params={
-                        "gameId":    self._game_id,
-                        "pageSize":  page_size,
-                        "index":     index,
-                        "sortOrder": "desc",
-                        "sortField": "TotalDownloads",
-                    }
+                    params=params,
                 )
                 r.raise_for_status()
                 data  = r.json()
                 batch = data.get("data", [])
 
+                # Debug: log eerste batch auteurs
+                if index == 0 and batch:
+                    sample_authors = batch[0].get("authors", [])
+                    log.info(f"[CF-DEBUG] Eerste addon: '{batch[0]['name']}' | "
+                             f"authors: {[(a.get('id'), a.get('name'), a.get('username')) for a in sample_authors]}")
+
+                matched_this_page = 0
                 for p in batch:
-                    # Check op name, username, en url slug — alles lowercase
                     authors = p.get("authors", [])
-                    matched = any(
-                        needle in a.get("name", "").lower() or
-                        needle in a.get("username", "").lower()
-                        for a in authors
-                    )
-                    if not matched:
+
+                    if self._author_id:
+                        # Methode 1: numerieke ID match — 100% betrouwbaar
+                        match = any(a.get("id") == self._author_id for a in authors)
+                    else:
+                        # Methode 2: naam/username match — case-insensitive
+                        match = any(
+                            needle in a.get("name", "").lower() or
+                            needle in a.get("username", "").lower()
+                            for a in authors
+                        )
+
+                    if not match:
                         continue
 
+                    matched_this_page += 1
                     logo = None
                     if p.get("logo") and p["logo"].get("thumbnailUrl"):
                         logo = p["logo"]["thumbnailUrl"]
@@ -87,20 +107,22 @@ class CurseForgeService:
                 total      = pagination.get("totalCount", 0)
                 index     += page_size
 
-                # Stop zodra we alle pagina's hebben of een match gevonden én
-                # de batch kleiner is dan page_size (laatste pagina)
-                if index >= min(total, 10000) or len(batch) < page_size:
-                    break
+                log.debug(f"[CF] Pagina {index//page_size}: {len(batch)} mods, "
+                          f"{matched_this_page} gevonden, totaal: {len(results)}")
 
-                # Early-exit: als we al resultaten hebben én diep in de lijst
-                # zitten (downloads zakken snel) kunnen we stoppen
-                if results and index > 2000:
+                # Stop condities
+                if len(batch) < page_size or index >= min(total, 10000):
                     break
+                # Early exit: als we resultaten hebben en de downloads snel dalen
+                if results and index > 500:
+                    # Check of laatste addon in batch nog redelijke downloads heeft
+                    last_dl = batch[-1].get("downloadCount", 0) if batch else 0
+                    if last_dl < 100:
+                        log.debug(f"[CF] Early exit op index {index} (downloads < 100)")
+                        break
 
         log.info(f"[CF] {len(results)} projecten gevonden voor '{author_slug}'")
         return results
-
-    # ─── File polling ──────────────────────────────────────────────────────────
 
     @async_retry(retries=3, delay=2.0, backoff=2.0)
     async def get_latest_file(self, project_id: int) -> AddonRelease | None:
@@ -116,8 +138,8 @@ class CurseForgeService:
         if not files:
             return None
 
-        f          = files[0]
-        changelog  = await self._get_changelog(project_id, f["id"])
+        f = files[0]
+        changelog = await self._get_changelog(project_id, f["id"])
         uploaded_at = None
         try:
             uploaded_at = datetime.fromisoformat(f["fileDate"].replace("Z", "+00:00"))
@@ -158,9 +180,7 @@ class CurseForgeService:
         return text.strip()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File         : curseforge_api.py   │  Role    : Core              ║
-# ║  Version      : 1.1.0               │  Status  : Updated           ║
-# ║  Last Updated : 2026-06-02  15:30   │  Notes   : Fix auteur filter ║
-# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File: curseforge_api.py │ v1.2.0 │ Updated │ 2026-06-02  15:45   ║
+# ║  Notes: author_id filter + betere debug logging                     ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

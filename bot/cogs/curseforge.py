@@ -25,6 +25,7 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
         self.cf     = CurseForgeService(
             api_key=bot.settings.curseforge_api_key,
             game_id=bot.settings.cf_game_id,
+            author_id=bot.settings.cf_author_id,
         )
         self.cache  = CacheService(bot.settings.database_path)
         self.claude = (

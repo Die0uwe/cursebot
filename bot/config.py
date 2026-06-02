@@ -1,43 +1,42 @@
 # ==============================================================================
-# Copyright (C) 2026  DieOuwe (https://www.dieouwe.nl / https://www.slayeralliance.com)
-#
-# This work is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This work is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
+"""
+CurseBot — config.py  v1.1.0
+Alle settings via environment variables / .env bestand.
+"""
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 
 
 class Settings(BaseSettings):
     # Discord
-    discord_token: str
-    release_channel_id: int           # Channel waar release embeds naartoe gaan
-    guild_id: int | None = None       # Voor dev: slash commands alleen voor deze guild
+    discord_token:      str
+    release_channel_id: int
+    guild_id:           int | None = None
 
     # CurseForge
     curseforge_api_key: str
-    cf_author_slug: str = "dieouwe"   # Auteur slug op CurseForge
-    cf_game_id: int = 1               # 1 = World of Warcraft
+    cf_author_slug:     str       = "dieouwe"
+    cf_author_id:       int | None = None   # Numerieke ID — gebruik find_author_id.py
+    cf_game_id:         int       = 1
 
     # Polling
-    check_interval_minutes: int = 10  # Hoe vaak pollen (10 min is veilig binnen CF rate limits)
+    check_interval_minutes: int   = 10
 
     # Database
-    database_path: str = "cache.db"   # SQLite pad
+    database_path:      str       = "cache.db"
 
     # Logging
-    log_level: str = "INFO"
+    log_level:          str       = "INFO"
 
-    # Optioneel: Claude API voor changelog samenvatting
-    anthropic_api_key: str | None = None
-    summarize_changelogs: bool = False
+    # Dashboard
+    dashboard_port:     int       = 5000
+    dashboard_enabled:  bool      = True
+
+    # Claude API
+    anthropic_api_key:  str | None = None
+    summarize_changelogs: bool     = False
 
     class Config:
         env_file = ".env"
@@ -53,18 +52,7 @@ class Settings(BaseSettings):
         return v
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║                         FILE CARD                                    ║
-# ╠══════════════════════════════════════════════════════════════════════╣
-# ║  File         : config.py                                           ║
-# ║  Role         : Core                                                ║
-# ║  Version      : 1.0.0                                               ║
-# ║  Created      : 2026-06-02                                          ║
-# ║  Last Updated : 2026-06-02  13:45                                     ║
-# ║  Status       : Updated                                             ║
-# ║  Notes        : Settings via pydantic-settings / .env               ║
-# ╠══════════════════════════════════════════════════════════════════════╣
-# ║  Created by Dieouwe                                                  ║
-# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
-# ║  📦 curseforge.com/members/dieouwe/projects                         ║
-# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
+# ║  File: config.py │ v1.1.0 │ Updated │ 2026-06-02  15:45           ║
+# ║  Notes: CF_AUTHOR_ID + DASHBOARD_PORT/ENABLED toegevoegd           ║
+# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
