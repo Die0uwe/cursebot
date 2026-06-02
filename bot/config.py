@@ -2,45 +2,49 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — config.py  v1.1.0
-Alle settings via environment variables / .env bestand.
+CurseBot — config.py  v1.2.0
+Fix: model_config gebruikt in plaats van inner Config class (pydantic v2 stijl).
+cf_author_id correct als Optional[int] gedefinieerd.
 """
-from pydantic_settings import BaseSettings
 from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",          # ← negeer onbekende env vars
+        case_sensitive=False,    # ← CF_AUTHOR_ID en cf_author_id beide werken
+    )
+
     # Discord
-    discord_token:      str
-    release_channel_id: int
-    guild_id:           int | None = None
+    discord_token:          str
+    release_channel_id:     int
+    guild_id:               int | None = None
 
     # CurseForge
-    curseforge_api_key: str
-    cf_author_slug:     str       = "dieouwe"
-    cf_author_id:       int | None = None   # Numerieke ID — gebruik find_author_id.py
-    cf_game_id:         int       = 1
+    curseforge_api_key:     str
+    cf_author_slug:         str        = "dieouwe"
+    cf_author_id:           int | None = None
+    cf_game_id:             int        = 1
 
     # Polling
-    check_interval_minutes: int   = 10
+    check_interval_minutes: int        = 10
 
     # Database
-    database_path:      str       = "cache.db"
+    database_path:          str        = "cache.db"
 
     # Logging
-    log_level:          str       = "INFO"
+    log_level:              str        = "INFO"
 
     # Dashboard
-    dashboard_port:     int       = 5000
-    dashboard_enabled:  bool      = True
+    dashboard_port:         int        = 5000
+    dashboard_enabled:      bool       = True
 
-    # Claude API
-    anthropic_api_key:  str | None = None
-    summarize_changelogs: bool     = False
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # Claude AI
+    anthropic_api_key:      str | None = None
+    summarize_changelogs:   bool       = False
 
     @field_validator("log_level")
     @classmethod
@@ -52,7 +56,7 @@ class Settings(BaseSettings):
         return v
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: config.py │ v1.1.0 │ Updated │ 2026-06-02  15:45           ║
-# ║  Notes: CF_AUTHOR_ID + DASHBOARD_PORT/ENABLED toegevoegd           ║
+# ║  File: config.py │ v1.2.0 │ Updated │ 2026-06-02  16:30           ║
+# ║  Fix: model_config + extra=ignore (pydantic v2) + case_sensitive   ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
