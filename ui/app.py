@@ -396,6 +396,11 @@ class CurseBotApp(ctk.CTk):
         self.sb_links_lbl.pack(anchor="w", padx=16, pady=(0, 6))
 
         links = [
+            ("➕ Bot toevoegen", C_GOLD,
+             "https://discord.com/oauth2/authorize"
+             "?client_id=BOT_CLIENT_ID"
+             "&permissions=2147601408"
+             "&scope=bot+applications.commands"),
             ("⚡ CurseForge", C_GOLD,
              "https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&search=DIEOUWE"),
             ("💬 Discord",    C_DISCORD,  "https://discord.gg/y8Pu5qsEbQ"),
@@ -1823,7 +1828,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.0.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.1.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CurseBot v2.2 — Handleiding</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Schaal variabele — slider stuurt deze aan ── */
+:root {
+  --scale: 1;
+  --gold: #f5a623; --blue: #3d9eff; --green: #2ecc71;
+  --red: #e74c3c; --purple: #a78bfa;
+  --bg: #0b0e14; --bg2: #111520; --bg3: #161c28;
+  --border: rgba(255,255,255,0.07);
+  --text: #cdd6f4; --muted: #6c7086;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: calc(13px * var(--scale));
+  line-height: 1.65;
+  transition: font-size 0.2s ease;
+}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+/* ── Layout ── */
+.wrap { max-width: calc(860px * var(--scale)); margin: 0 auto; padding: 0 1.5rem; transition: max-width 0.2s; }
+
+/* ── Hero ── */
+.hero {
+  display: flex; align-items: center; gap: 2rem;
+  padding: 3rem 1.5rem 2rem;
+  max-width: calc(860px * var(--scale)); margin: 0 auto;
+  border-bottom: 1px solid var(--border);
+  transition: max-width 0.2s;
+}
+.hero-logo { width: calc(90px * var(--scale)); flex-shrink: 0; transition: width 0.2s; }
+.hero-logo img { width: 100%; display: block; }
+.hero-text h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: calc(clamp(1.8rem, 4vw, 2.6rem) * var(--scale));
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff 30%, var(--gold) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1.1; margin-bottom: 0.5rem; transition: font-size 0.2s;
+}
+.hero-sub { color: var(--muted); }
+.badges { display: flex; gap: 6px; margin-top: 0.75rem; flex-wrap: wrap; }
+.badge {
+  font-size: calc(10px * var(--scale));
+  font-weight: 500; letter-spacing: 0.06em;
+  padding: 3px 9px; border-radius: 3px;
+  border: 1px solid rgba(46,204,113,0.3);
+  background: rgba(46,204,113,0.06); color: var(--green);
+  transition: font-size 0.2s;
+}
+.invite-hero {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 1rem; padding: 8px 16px; border-radius: 6px;
+  background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.3);
+  color: var(--gold); text-decoration: none;
+  font-size: calc(12px * var(--scale)); font-weight: 500;
+  transition: all 0.2s;
+}
+.invite-hero:hover { background: rgba(245,166,35,0.2); }
+
+/* ── Nav + scale controls ── */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(11,14,20,0.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 0; overflow-x: auto;
+}
+.nav a {
+  font-size: calc(11px * var(--scale));
+  letter-spacing: 0.06em; color: var(--muted);
+  text-decoration: none; padding: 10px 14px; white-space: nowrap;
+  border-bottom: 2px solid transparent; transition: all 0.15s;
+  flex-shrink: 0;
+}
+.nav a:hover { color: var(--gold); border-color: var(--gold); }
+
+/* Schaal controls rechts in de nav */
+.scale-controls {
+  margin-left: auto; display: flex; align-items: center;
+  gap: 8px; padding: 0 14px; flex-shrink: 0;
+}
+.scale-btn {
+  width: 24px; height: 24px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; font-family: inherit;
+}
+.scale-btn:hover { border-color: var(--gold); color: var(--gold); }
+.scale-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 80px; height: 3px; border-radius: 2px;
+  background: var(--border); outline: none; cursor: pointer;
+}
+.scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--gold); cursor: pointer;
+}
+.scale-label {
+  font-size: 10px; color: var(--muted);
+  min-width: 32px; text-align: center; font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Secties ── */
+.section { padding: 2.5rem 0; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.section-num { font-size: calc(10px * var(--scale)); color: var(--gold); letter-spacing: 0.12em; margin-bottom: 4px; transition: font-size 0.2s; }
+.section-title {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: calc(1.3rem * var(--scale));
+  letter-spacing: -0.02em; margin-bottom: 0.75rem; transition: font-size 0.2s;
+}
+.section-desc { color: var(--muted); margin-bottom: 1.25rem; }
+
+/* ── Screenshots ── */
+.shot-wrap {
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; margin: 1rem 0; cursor: zoom-in; background: #05070a;
+}
+.shot-wrap img {
+  width: 100%; display: block; max-height: 220px;
+  object-fit: cover; object-position: top;
+  transition: max-height 0.3s ease;
+}
+.shot-wrap:hover img { max-height: 440px; }
+.shot-label {
+  font-size: calc(10px * var(--scale)); color: var(--muted);
+  padding: 5px 10px; background: var(--bg2);
+  border-top: 1px solid var(--border); letter-spacing: 0.04em;
+}
+
+/* ── Feature grid ── */
+.feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 1rem 0; }
+.feat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 14px;
+}
+.feat-card-title { font-size: calc(12px * var(--scale)); font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.feat-card-desc { font-size: calc(11px * var(--scale)); color: var(--muted); }
+
+/* ── Commands tabel ── */
+.cmd-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.cmd-table th {
+  text-align: left; padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--gold); font-size: calc(10px * var(--scale)); letter-spacing: 0.1em;
+}
+.cmd-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+.cmd-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+.cmd-table tr:last-child td { border-bottom: none; }
+.cmd { font-family: 'JetBrains Mono', monospace; color: var(--gold); }
+
+/* ── Stappen ── */
+.steps { display: flex; flex-direction: column; gap: 6px; margin: 1rem 0; }
+.step {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 14px;
+}
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,166,35,0.15); color: var(--gold);
+  font-size: calc(11px * var(--scale)); font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-body { flex: 1; }
+.step-title { color: var(--text); font-weight: 500; margin-bottom: 2px; }
+.step-desc { color: var(--muted); }
+
+/* ── Invite CTA ── */
+.invite-cta {
+  display: flex; align-items: center; gap: 16px;
+  background: rgba(245,166,35,0.06); border: 1px solid rgba(245,166,35,0.2);
+  border-radius: 8px; padding: 16px 20px; margin: 1rem 0;
+}
+.invite-cta-text { flex: 1; }
+.invite-cta-title { font-weight: 500; color: var(--text); margin-bottom: 3px; }
+.invite-cta-sub { font-size: calc(11px * var(--scale)); color: var(--muted); }
+.invite-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 6px;
+  background: var(--gold); color: #000;
+  font-weight: 700; text-decoration: none; font-size: calc(12px * var(--scale));
+  white-space: nowrap; transition: opacity 0.2s; flex-shrink: 0;
+}
+.invite-btn:hover { opacity: 0.85; }
+
+/* ── Troubleshoot ── */
+.trouble-row {
+  display: flex; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.trouble-row:last-child { border: none; }
+.trouble-code { color: var(--text); font-weight: 500; min-width: 200px; flex-shrink: 0; }
+.trouble-fix { color: var(--muted); }
+
+/* ── Footer ── */
+footer {
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: 1.5rem; display: flex; justify-content: space-between;
+  align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.footer-left { font-size: calc(11px * var(--scale)); color: var(--muted); }
+.footer-links { display: flex; gap: 12px; }
+.footer-links a { font-size: calc(11px * var(--scale)); color: var(--gold); text-decoration: none; }
+.footer-links a:hover { text-decoration: underline; }
+.close-btn {
+  font-family: 'JetBrains Mono', monospace;
+  padding: 7px 18px; border-radius: 4px; cursor: pointer;
+  background: rgba(231,76,60,0.08); border: 1px solid var(--red);
+  color: var(--red); transition: all 0.2s; width: 100%; margin-top: 8px;
+  letter-spacing: 0.05em; font-size: calc(11px * var(--scale));
+}
+.close-btn:hover { background: var(--red); color: #fff; }
+
+/* ── Lightbox ── */
+#lb {
+  position: fixed; inset: 0; background: rgba(5,7,12,0.96);
+  z-index: 999; display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s; padding: 20px;
+}
+#lb.on { opacity: 1; pointer-events: all; }
+#lb img { max-width: 95%; max-height: 85vh; border-radius: 4px; border: 1px solid var(--border); }
+#lb-close {
+  position: absolute; top: 12px; right: 14px;
+  background: var(--red); color: #fff; border: none;
+  padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+<div id="lb" onclick="closeLb()">
+  <button id="lb-close" onclick="closeLb()">Sluiten ✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="hero-logo">
+    <img src="images/CURSEBOT.png" alt="CurseBot">
+  </div>
+  <div class="hero-text">
+    <h1>CurseBot v2.2</h1>
+    <p class="hero-sub">Slayer Alliance Edition — CurseForge addon monitor voor Discord</p>
+    <div class="badges">
+      <span class="badge">🛡️ No Paywalls</span>
+      <span class="badge">❌ No Patreon</span>
+      <span class="badge">💎 All Features</span>
+      <span class="badge">⚡ Open Source</span>
+    </div>
+    <a class="invite-hero"
+       href="https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands"
+       target="_blank">
+      ➕ Voeg CurseBot toe aan je server
+    </a>
+  </div>
+</div>
+
+<!-- ── NAV + SLIDER ── -->
+<nav class="nav">
+  <a href="#dashboard">Dashboard</a>
+  <a href="#setup">Configuratie</a>
+  <a href="#watchlist">Watchlist</a>
+  <a href="#browser">CF Browser</a>
+  <a href="#commands">Commands</a>
+  <a href="#invite">Installatie</a>
+  <a href="#trouble">Diagnostiek</a>
+
+  <div class="scale-controls">
+    <button class="scale-btn" onclick="adjustScale(-0.1)" title="Kleiner">−</button>
+    <input class="scale-slider" type="range" min="0.7" max="1.5" step="0.05"
+           value="1" oninput="setScale(this.value)" id="scaleSlider">
+    <button class="scale-btn" onclick="adjustScale(0.1)" title="Groter">+</button>
+    <span class="scale-label" id="scaleLabel">100%</span>
+    <button class="scale-btn" onclick="resetScale()" title="Reset">↺</button>
+  </div>
+</nav>
+
+<!-- ── 01 DASHBOARD ── -->
+<section class="section" id="dashboard">
+<div class="wrap">
+  <p class="section-num">01 / DASHBOARD</p>
+  <h2 class="section-title">Het Live Dashboard</h2>
+  <p class="section-desc">Centrale commandopost van CurseBot. Uptime, addon count, last check en live log in één overzicht.</p>
+
+  <div class="shot-wrap" onclick="openLb(this)">
+    <img src="images/DASHBOARD.png" alt="Dashboard">
+    <div class="shot-label">↕ Hover om te vergroten · klik voor volledig scherm</div>
+  </div>
+
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-card-title">⏹ Stop</div><div class="feat-card-desc">Beëindigt de actieve controle-loop netjes.</div></div>
+    <div class="feat-card"><div class="feat-card-title">✕ Cache</div><div class="feat-card-desc">Leegt de lokale database — volgende check pakt alles als nieuw.</div></div>
+    <div class="feat-card"><div class="feat-card-title">↺ Check</div><div class="feat-card-desc">Negeert het interval — start direct een handmatige CF-controle.</div></div>
+    <div class="feat-card"><div class="feat-card-title">↑ Update</div><div class="feat-card-desc">Haalt de nieuwste versie op van GitHub en herstart automatisch.</div></div>
+  </div>
+</div>
+</section>
+
+<!-- ── 02 SETUP ── -->
+<section class="section" id="setup">
+<div class="wrap">
+  <p class="section-num">02 / EERSTE CONFIGURATIE</p>
+  <h2 class="section-title">API & Tokens instellen</h2>
+  <p class="section-desc">Bij de allereerste start vraagt CurseBot om je tokens — versleuteld opgeslagen via Windows Credential Manager.</p>
+
+  <div class="shot-wrap" onclick="openLb(this)">
+    <img src="images/API SETTINGS.png" alt="Configuratie">
+    <div class="shot-label">Setup wizard — verschijnt automatisch bij eerste start</div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Discord Bot Token</div><div class="step-desc">discord.com/developers/applications → Bot → Reset Token</div></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">CurseForge API Key</div><div class="step-desc">console.curseforge.com → My API Keys</div></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Discord Channel ID</div><div class="step-desc">Developer Mode aan → rechtermuisklik kanaal → ID kopiëren</div></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Opslaan & Starten</div><div class="step-desc">Keys worden versleuteld opgeslagen — volgende keer start alles automatisch</div></div></div>
+  </div>
+
+  <div class="shot-wrap" onclick="openLb(this)" style="margin-top:1rem">
+    <img src="images/SETTINGS.png" alt="Instellingen">
+    <div class="shot-label">Instellingen — aanpassen na eerste installatie</div>
+  </div>
+</div>
+</section>
+
+<!-- ── 03 WATCHLIST ── -->
+<section class="section" id="watchlist">
+<div class="wrap">
+  <p class="section-num">03 / MONITORING</p>
+  <h2 class="section-title">Mijn addons & Watchlist</h2>
+  <p class="section-desc">CurseBot ontdekt je eigen addons automatisch. Andere addons voeg je toe via de Watchlist of CF Browser.</p>
+
+  <div class="feat-grid">
+    <div class="shot-wrap" onclick="openLb(this)" style="margin:0">
+      <img src="images/MY ADDONS.png" alt="Mijn addons">
+      <div class="shot-label">Mijn Addons — automatisch ontdekt</div>
+    </div>
+    <div class="shot-wrap" onclick="openLb(this)" style="margin:0">
+      <img src="images/WATCHLIST.png" alt="Watchlist">
+      <div class="shot-label">Watchlist — handmatig toegevoegd</div>
+    </div>
+  </div>
+
+  <p style="color:var(--muted);margin-top:1rem">
+    Bij elke nieuwe release → Discord embed met addon logo, changelog, game versions en directe download.
+    Stable · Beta · Alpha per kanaal instelbaar via <span class="cmd">/setchannel</span>.
+  </p>
+</div>
+</section>
+
+<!-- ── 04 BROWSER ── -->
+<section class="section" id="browser">
+<div class="wrap">
+  <p class="section-num">04 / CF BROWSER</p>
+  <h2 class="section-title">Ingebouwde CurseForge Browser</h2>
+  <p class="section-desc">Zoek addons direct — ook als de Discord bot offline is. Roept de CF API rechtstreeks aan.</p>
+
+  <div class="shot-wrap" onclick="openLb(this)">
+    <img src="images/SEARCH.png" alt="CF Browser">
+    <div class="shot-label">CF Browser — zoek, bekijk, voeg toe aan watchlist</div>
+  </div>
+
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-card-title">🌐 Direct CF API</div><div class="feat-card-desc">Werkt onafhankelijk van de bot — eigen API key.</div></div>
+    <div class="feat-card"><div class="feat-card-title">+ Watch knop</div><div class="feat-card-desc">Direct aan watchlist toevoegen met één klik.</div></div>
+    <div class="feat-card"><div class="feat-card-title">📸 Thumbnails</div><div class="feat-card-desc">Addon logo's asynchroon geladen — nooit UI blokkering.</div></div>
+    <div class="feat-card"><div class="feat-card-title">🔢 K/M formaat</div><div class="feat-card-desc">1.2K of 4.5M downloads voor leesbaarheid.</div></div>
+  </div>
+</div>
+</section>
+
+<!-- ── 05 COMMANDS ── -->
+<section class="section" id="commands">
+<div class="wrap">
+  <p class="section-num">05 / DISCORD COMMANDS</p>
+  <h2 class="section-title">Alle Slash Commands</h2>
+  <p class="section-desc">Gebruik <span class="cmd">/help</span> in Discord voor dit overzicht in je eigen server. 🔒 = administrator vereist.</p>
+
+  <table class="cmd-table">
+    <thead><tr><th>COMMAND</th><th>BESCHRIJVING</th></tr></thead>
+    <tbody>
+      <tr><td><span class="cmd">/help</span></td><td>Embedded overzicht van alle commands</td></tr>
+      <tr><td><span class="cmd">/status</span> 🔒</td><td>Bot status, getrackte addons en kanaalconfiguratie</td></tr>
+      <tr><td><span class="cmd">/check</span> 🔒</td><td>Forceer directe CurseForge check</td></tr>
+      <tr><td><span class="cmd">/projects</span> 🔒</td><td>Toon alle automatisch ontdekte addons</td></tr>
+      <tr><td><span class="cmd">/stats</span> 🔒</td><td>Download statistieken met K/M formattering</td></tr>
+      <tr><td><span class="cmd">/reset</span> 🔒</td><td>Wis file ID cache — forceert nieuwe notificaties</td></tr>
+      <tr><td><span class="cmd">/setchannel</span> 🔒</td><td>Koppel kanaal aan release type (all/stable/beta/alpha)</td></tr>
+      <tr><td><span class="cmd">/removechannel</span> 🔒</td><td>Verwijder kanaalconfiguratie</td></tr>
+      <tr><td><span class="cmd">/watch</span></td><td>Voeg addon toe aan watchlist (optioneel: release filter)</td></tr>
+      <tr><td><span class="cmd">/unwatch</span></td><td>Verwijder addon uit watchlist</td></tr>
+      <tr><td><span class="cmd">/watchlist</span></td><td>Toon alle getrackte addons voor deze server</td></tr>
+      <tr><td><span class="cmd">/setup</span> 🔒</td><td>Herstart eerste-keer configuratie wizard</td></tr>
+      <tr><td><span class="cmd">/invite</span></td><td>Genereer invite link voor andere servers</td></tr>
+      <tr><td><span class="cmd">/permissions</span></td><td>Controleer bot-rechten in een kanaal</td></tr>
+    </tbody>
+  </table>
+
+  <div class="shot-wrap" onclick="openLb(this)">
+    <img src="images/STATISTICS.png" alt="Statistieken">
+    <div class="shot-label">Download statistieken via /stats of de Statistieken tab</div>
+  </div>
+</div>
+</section>
+
+<!-- ── 06 INVITE ── -->
+<section class="section" id="invite">
+<div class="wrap">
+  <p class="section-num">06 / BOT INSTALLATIE</p>
+  <h2 class="section-title">CurseBot toevoegen aan je server</h2>
+  <p class="section-desc">CurseBot is gratis en open-source. Voeg hem toe aan elke Discord server waar jij administrator bent.</p>
+
+  <div class="invite-cta">
+    <div class="invite-cta-text">
+      <div class="invite-cta-title">⚡ CurseBot — Slayer Alliance Edition</div>
+      <div class="invite-cta-sub">Vereiste rechten: berichten sturen · embeds · bestanden · geschiedenis lezen · slash commands</div>
+    </div>
+    <a class="invite-btn"
+       href="https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands"
+       target="_blank">
+      ➕ Toevoegen
+    </a>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Klik op de knop hierboven</div><div class="step-desc">Discord opent een autorisatiepagina — log in als je dat nog niet bent.</div></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Selecteer je server</div><div class="step-desc">Kies de server uit het dropdown menu — je hebt Administrator nodig.</div></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Autoriseer de rechten</div><div class="step-desc">Controleer de gevraagde rechten en klik op Autoriseren.</div></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Setup wizard</div><div class="step-desc">CurseBot stuurt automatisch een setup bericht. Gebruik /setup als dat niet gebeurt.</div></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-body"><div class="step-title">Kanaal instellen</div><div class="step-desc">Gebruik /setchannel om een kanaal te koppelen aan release notificaties. Je bent klaar!</div></div></div>
+  </div>
+
+  <p style="color:var(--muted);margin-top:1rem;font-size:calc(11px * var(--scale))">
+    Of gebruik in Discord: <span class="cmd">/invite</span> — genereert een verse invite link voor andere servers.
+  </p>
+</div>
+</section>
+
+<!-- ── 07 DIAGNOSTIEK ── -->
+<section class="section" id="trouble">
+<div class="wrap">
+  <p class="section-num">07 / DIAGNOSTIEK</p>
+  <h2 class="section-title">Foutafhandeling</h2>
+
+  <div class="trouble-row"><div class="trouble-code">403 + X-Cache: cloudfront</div><div class="trouble-fix">Tijdelijke Cloudfront WAF blokkade — geen auth-fout. Wacht 1–24 uur. Niet herstarten.</div></div>
+  <div class="trouble-row"><div class="trouble-code">403 zonder X-Cache</div><div class="trouble-fix">API key ongeldig of verlopen. Controleer CURSEFORGE_API_KEY in Instellingen.</div></div>
+  <div class="trouble-row"><div class="trouble-code">0 projecten na start</div><div class="trouble-fix">CF_AUTHOR_SLUG controleren — moet een naam zijn (bijv. dieouwe), geen getal.</div></div>
+  <div class="trouble-row"><div class="trouble-code">Bot stopt na X uur</div><div class="trouble-fix">v2.1.0+ heeft de monitor_loop.error handler. Update naar de nieuwste versie.</div></div>
+  <div class="trouble-row"><div class="trouble-code">Geen notificaties</div><div class="trouble-fix">Gebruik /setchannel om een kanaal te koppelen. Controleer rechten via /permissions.</div></div>
+  <div class="trouble-row"><div class="trouble-code">Addon images niet zichtbaar</div><div class="trouble-fix">v2.0.0+ laadt images asynchroon. Update via start_cursebot.bat → updater pakt dit op.</div></div>
+</div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-left">CurseBot v2.2.0 — Slayer Alliance Edition · © 2026 DieOuwe</div>
+  <div class="footer-links">
+    <a href="https://discord.gg/y8Pu5qsEbQ">Discord</a>
+    <a href="https://dieouwe.nl">dieouwe.nl</a>
+    <a href="https://www.curseforge.com/members/dieouwe/projects">CurseForge</a>
+    <a href="https://github.com/Die0uwe/cursebot">GitHub</a>
+  </div>
+  <button class="close-btn" onclick="window.close()">✕ Sluit documentatie</button>
+</footer>
+
+<script>
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+function openLb(wrap) {
+  document.getElementById("lb-img").src = wrap.querySelector("img").src;
+  document.getElementById("lb").classList.add("on");
+}
+function closeLb() { document.getElementById("lb").classList.remove("on"); }
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeLb(); });
+
+// ── Font scaler ───────────────────────────────────────────────────────────────
+const root    = document.documentElement;
+const slider  = document.getElementById("scaleSlider");
+const label   = document.getElementById("scaleLabel");
+
+function setScale(v) {
+  v = Math.min(1.5, Math.max(0.7, parseFloat(v)));
+  root.style.setProperty("--scale", v);
+  slider.value  = v;
+  label.textContent = Math.round(v * 100) + "%";
+  try { localStorage.setItem("cb_handleiding_scale", v); } catch(e) {}
+}
+
+function adjustScale(delta) {
+  setScale(parseFloat(slider.value) + delta);
+}
+
+function resetScale() { setScale(1); }
+
+// Laad opgeslagen voorkeur
+try {
+  const saved = localStorage.getItem("cb_handleiding_scale");
+  if (saved) setScale(parseFloat(saved));
+} catch(e) {}
+</script>
+</body>
+</html>

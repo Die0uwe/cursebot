@@ -15,8 +15,19 @@ GNU General Public License for more details.
 -->
 # CurseBot — Slayer Alliance Edition
 
-Automatische CurseForge release monitor voor alle addons van DieOuwe.
-Stuurt Discord embeds bij elke nieuwe release, beta of alpha upload.
+[![Voeg toe aan Discord](https://img.shields.io/badge/Discord-Bot_toevoegen-5865F2?logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands)
+[![GitHub](https://img.shields.io/badge/GitHub-Die0uwe%2Fcursebot-gold?logo=github)](https://github.com/Die0uwe/cursebot)
+[![Licentie](https://img.shields.io/badge/Licentie-GPL_v3-green)](https://www.gnu.org/licenses/gpl-3.0.html)
+
+Automatische CurseForge release monitor voor Discord. Stuurt embeds bij elke nieuwe release, beta of alpha upload.
+
+## ➕ Bot toevoegen aan je server
+
+**[Klik hier om CurseBot toe te voegen](https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands)**
+
+Of gebruik in Discord: `/invite` — genereert een verse invite link.
+
+Vereiste rechten: berichten sturen · embeds · bestanden · geschiedenis · slash commands
 
 ---
 
@@ -34,7 +45,7 @@ Stuurt Discord embeds bij elke nieuwe release, beta of alpha upload.
 ## Installatie (VPS / lokaal)
 
 ```bash
-git clone <repo-url> cursebot
+git clone https://github.com/Die0uwe/cursebot.git cursebot
 cd cursebot
 
 python -m venv .venv
