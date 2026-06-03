@@ -151,24 +151,49 @@ class CurseBotApp(ctk.CTk):
         self._start_poll()
         self.after(500, self._refresh)
 
+        # Tray icon referentie
+        self._tray_icon = None
+
+        # Bind minimize event → naar tray
+        self.bind("<Unmap>", self._on_unmap)
+
         # Setup wizard — toon als verplichte keys ontbreken
         self.after(300, self._check_setup)
 
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
         self.hdr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=52,
+            self, fg_color=C_BG3, corner_radius=0, height=56,
             border_width=1, border_color=C_BORDER
         )
         self.hdr_frame.pack(fill="x", side="top")
         self.hdr_frame.pack_propagate(False)
 
-        # Logo
+        # Logo afbeelding — LOGOSMALL.png
+        try:
+            from PIL import Image
+            _logo_path = BASE_DIR / "ui" / "assets" / "LOGOSMALL.png"
+            if _logo_path.exists():
+                _logo_pil = Image.open(_logo_path).resize((36, 36), Image.LANCZOS)
+                self._hdr_logo_img = ctk.CTkImage(
+                    light_image=_logo_pil, dark_image=_logo_pil,
+                    size=(36, 36)
+                )
+                ctk.CTkLabel(
+                    self.hdr_frame,
+                    image=self._hdr_logo_img,
+                    text="",
+                    fg_color="transparent"
+                ).pack(side="left", padx=(10, 6), pady=8)
+        except Exception:
+            pass  # Fallback: geen logo — tekst blijft zichtbaar
+
+        # Tekst logo
         self.hdr_logo_lbl = ctk.CTkLabel(
-            self.hdr_frame, text="⚡ CurseBot",
+            self.hdr_frame, text="CurseBot",
             font=("Segoe UI", 16, "bold"), text_color=C_GOLD
         )
-        self.hdr_logo_lbl.pack(side="left", padx=(16, 4), pady=12)
+        self.hdr_logo_lbl.pack(side="left", padx=(0, 4), pady=12)
 
         self.hdr_edition_lbl = ctk.CTkLabel(
             self.hdr_frame, text="Slayer Alliance Edition",
@@ -1576,8 +1601,107 @@ class CurseBotApp(ctk.CTk):
         ))
 
     def _on_close(self):
+        """Bij sluiten: minimaliseer naar systeemvak ipv afsluiten."""
+        self._hide_to_tray()
+
+    def _hide_to_tray(self):
+        """Verberg venster naar systeemvak."""
+        self.withdraw()
+        if not hasattr(self, "_tray_icon") or self._tray_icon is None:
+            self._start_tray_icon()
+
+    def _show_from_tray(self):
+        """Herstel venster vanuit systeemvak."""
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        # Stop tray icon
+        if hasattr(self, "_tray_icon") and self._tray_icon:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
+
+    def _quit_from_tray(self):
+        """Volledig afsluiten vanuit systeemvak."""
+        if hasattr(self, "_tray_icon") and self._tray_icon:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
         self._poll_active = False
-        self.destroy()
+        # Stop bot indien draaiend
+        if self._bot_manager and self._bot_manager.is_running:
+            self._bot_manager.stop()
+        self.after(500, self.destroy)
+
+    def _start_tray_icon(self):
+        """Start pystray icoon in achtergrondthread."""
+        try:
+            import pystray
+            from PIL import Image
+
+            # Logo laden voor tray (256x256 RGBA)
+            _logo_path = BASE_DIR / "ui" / "assets" / "LOGOSMALL.png"
+            if _logo_path.exists():
+                tray_img = Image.open(_logo_path).convert("RGBA").resize(
+                    (256, 256), Image.LANCZOS
+                )
+            else:
+                # Fallback: eenvoudig goud vierkant
+                tray_img = Image.new("RGBA", (64, 64), (245, 166, 35, 255))
+
+            menu = pystray.Menu(
+                pystray.MenuItem(
+                    "⚡ CurseBot openen",
+                    lambda icon, item: self.after(0, self._show_from_tray),
+                    default=True  # dubbelklik activeert dit
+                ),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    "▶ Bot starten" if not (self._bot_manager and self._bot_manager.is_running) else "⏹ Bot stoppen",
+                    lambda icon, item: self.after(0,
+                        self._do_start if not (self._bot_manager and self._bot_manager.is_running)
+                        else self._do_stop
+                    )
+                ),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    "✕ Afsluiten",
+                    lambda icon, item: self.after(0, self._quit_from_tray)
+                ),
+            )
+
+            self._tray_icon = pystray.Icon(
+                name="CurseBot",
+                icon=tray_img,
+                title="CurseBot — Slayer Alliance Edition",
+                menu=menu,
+            )
+
+            # Draai in daemon thread zodat het de app niet blokkeert
+            import threading
+            t = threading.Thread(
+                target=self._tray_icon.run,
+                daemon=True, name="TrayThread"
+            )
+            t.start()
+
+        except ImportError:
+            # pystray niet geïnstalleerd — gewoon sluiten
+            self._poll_active = False
+            self.destroy()
+        except Exception as e:
+            # Tray niet beschikbaar (bijv. Linux zonder GTK) — gewoon sluiten
+            self._poll_active = False
+            self.destroy()
+
+    def _on_unmap(self, event):
+        """Gevangen bij minimize (iconify) → verstuur naar systeemvak."""
+        if event.widget is self and self.state() == "iconic":
+            self.after(50, self._hide_to_tray)
 
     def _check_setup(self):
         """Toon setup wizard als verplichte keys ontbreken."""
@@ -1611,7 +1735,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.7.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v1.8.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
