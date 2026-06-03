@@ -1,11 +1,7 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""
-CurseBot — config.py  v1.2.0
-Fix: model_config gebruikt in plaats van inner Config class (pydantic v2 stijl).
-cf_author_id correct als Optional[int] gedefinieerd.
-"""
+"""CurseBot — config.py  v1.3.0"""
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,37 +10,37 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",          # ← negeer onbekende env vars
-        case_sensitive=False,    # ← CF_AUTHOR_ID en cf_author_id beide werken
+        extra="ignore",
+        case_sensitive=False,
     )
 
     # Discord
-    discord_token:          str
-    release_channel_id:     int
-    guild_id:               int | None = None
+    discord_token:           str
+    release_channel_id:      int
+    guild_id:                int | None = None
 
     # CurseForge
-    curseforge_api_key:     str
-    cf_author_slug:         str        = "dieouwe"
-    cf_author_id:           int | None = None
-    cf_game_id:             int        = 1
+    curseforge_api_key:      str
+    cf_author_slug:          str        = "dieouwe"
+    cf_author_id:            int | None = None
+    cf_game_id:              int        = 1
 
     # Polling
-    check_interval_minutes: int        = 10
+    check_interval_minutes:  int        = 10
 
-    # Database
-    database_path:          str        = "cache.db"
+    # Database — accepteert zowel DATABASE_PATH als database_path
+    database_path:           str        = "cache.db"
 
     # Logging
-    log_level:              str        = "INFO"
+    log_level:               str        = "INFO"
 
     # Dashboard
-    dashboard_port:         int        = 5000
-    dashboard_enabled:      bool       = True
+    dashboard_port:          int        = 5000
+    dashboard_enabled:       bool       = True
 
     # Claude AI
-    anthropic_api_key:      str | None = None
-    summarize_changelogs:   bool       = False
+    anthropic_api_key:       str | None = None
+    summarize_changelogs:    bool       = False
 
     @field_validator("log_level")
     @classmethod
@@ -58,18 +54,16 @@ class Settings(BaseSettings):
     @field_validator("cf_author_slug")
     @classmethod
     def validate_cf_author_slug(cls, v: str) -> str:
-        """Waarschuw als de slug een getal is — dan is waarschijnlijk ID/slug verwisseld."""
         if v.strip().isdigit():
             import logging
             logging.getLogger(__name__).error(
                 f"CF_AUTHOR_SLUG='{v}' is een getal! "
-                f"Dit hoort een naam te zijn zoals 'dieouwe'. "
-                f"Zet CF_AUTHOR_ID={v} en CF_AUTHOR_SLUG=dieouwe in je .env"
+                f"Moet 'dieouwe' zijn, niet het ID getal."
             )
         return v.strip()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: config.py │ v1.2.0 │ Updated │ 2026-06-02  16:30           ║
-# ║  Fix: slug validator — waarschuwt als slug een getal is            ║
+# ║  File: config.py │ v1.3.0 │ 2026-06-02                            ║
+# ║  Fix: database_path veld + extra=ignore voorkomt pydantic errors   ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
