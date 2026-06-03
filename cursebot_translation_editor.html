@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CurseBot — Community Vertaaleditor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold:#f5a623;--blue:#3d9eff;--green:#2ecc71;--red:#e74c3c;--purple:#a78bfa;
+  --bg:#0b0e14;--bg2:#111520;--bg3:#161c28;--border:rgba(255,255,255,0.07);
+  --text:#cdd6f4;--muted:#6c7086;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;}
+::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-thumb{background:var(--gold);}
+
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1rem 1.5rem;border-bottom:1px solid var(--border);
+  background:rgba(11,14,20,0.95);position:sticky;top:0;z-index:50;
+}
+.header-left h1{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;color:var(--gold);}
+.header-left p{font-size:11px;color:var(--muted);margin-top:2px;}
+.header-right{display:flex;gap:8px;align-items:center;}
+
+.btn{padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;
+  color:var(--text);cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;transition:all .15s;}
+.btn:hover{border-color:var(--gold);color:var(--gold);}
+.btn-primary{background:var(--gold);color:#000;border-color:var(--gold);}
+.btn-primary:hover{opacity:.85;color:#000;}
+.btn-success{background:rgba(46,204,113,.1);border-color:var(--green);color:var(--green);}
+.btn-success:hover{background:rgba(46,204,113,.2);}
+
+.controls{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:12px 1.5rem;border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.control-group{display:flex;align-items:center;gap:8px;}
+label{font-size:11px;color:var(--muted);}
+select,input{
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--text);border-radius:4px;padding:5px 10px;
+  font-family:inherit;font-size:12px;outline:none;
+}
+select:focus,input:focus{border-color:var(--gold);}
+
+.progress-bar{height:4px;background:var(--border);border-radius:2px;flex:1;min-width:100px;}
+.progress-fill{height:100%;border-radius:2px;background:var(--green);transition:width .3s;}
+.progress-label{font-size:11px;color:var(--muted);white-space:nowrap;}
+
+.main{max-width:1100px;margin:0 auto;padding:1.5rem;}
+
+.string-grid{display:flex;flex-direction:column;gap:6px;}
+.string-row{
+  display:grid;grid-template-columns:220px 1fr 1fr 80px;
+  gap:8px;align-items:start;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:6px;padding:10px 14px;
+}
+.string-row.missing{border-color:rgba(231,76,60,.3);background:rgba(231,76,60,.04);}
+.string-row.done{border-color:rgba(46,204,113,.2);}
+.string-key{font-size:11px;color:var(--gold);font-weight:500;word-break:break-all;padding-top:4px;}
+.string-source{font-size:12px;color:var(--muted);padding-top:4px;}
+.string-input{
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--text);border-radius:4px;padding:6px 10px;
+  font-family:inherit;font-size:12px;resize:vertical;min-height:32px;
+  width:100%;outline:none;transition:border .15s;
+}
+.string-input:focus{border-color:var(--gold);}
+.string-input.filled{border-color:rgba(46,204,113,.4);}
+.string-input.changed{border-color:var(--gold);}
+.status-icon{font-size:16px;text-align:center;padding-top:4px;}
+
+.section-header{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;margin:16px 0 8px;
+  border-bottom:1px solid var(--border);cursor:pointer;
+}
+.section-header h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.section-toggle{color:var(--muted);font-size:12px;margin-left:auto;}
+.section-body.collapsed{display:none;}
+
+.export-area{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:6px;padding:1rem;margin-top:1rem;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--text);white-space:pre;overflow-x:auto;max-height:300px;overflow-y:auto;
+}
+
+.toast{
+  position:fixed;bottom:20px;right:20px;
+  background:var(--bg3);border:1px solid var(--green);
+  color:var(--green);padding:10px 16px;border-radius:6px;
+  font-size:12px;z-index:999;opacity:0;transition:opacity .2s;
+  pointer-events:none;
+}
+.toast.on{opacity:1;}
+
+.filter-btn{
+  padding:4px 10px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;
+  font-family:inherit;font-size:11px;transition:all .15s;
+}
+.filter-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(245,166,35,.08);}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<div class="header">
+  <div class="header-left">
+    <h1>⚡ CurseBot — Vertaaleditor</h1>
+    <p>Community lokalisatie tool · vertalingen worden PR-ready JSON</p>
+  </div>
+  <div class="header-right">
+    <button class="btn" onclick="loadFromFile()">📂 JSON laden</button>
+    <button class="btn btn-success" onclick="exportJSON()">⬇ Exporteer JSON</button>
+    <button class="btn btn-primary" onclick="copyForPR()">📋 Kopieer voor PR</button>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Brontaal:</label>
+    <select id="sourceLang" onchange="render()">
+      <option value="nl">Nederlands 🇳🇱</option>
+      <option value="en">English 🇬🇧</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Vertaaltaal:</label>
+    <select id="targetLang" onchange="switchTarget()">
+      <option value="en">English 🇬🇧</option>
+      <option value="de">Deutsch 🇩🇪</option>
+      <option value="fr">Français 🇫🇷</option>
+      <option value="es">Español 🇪🇸</option>
+      <option value="custom">+ Nieuwe taal</option>
+    </select>
+  </div>
+  <div class="control-group" id="customLangGroup" style="display:none">
+    <label>Taalcode:</label>
+    <input id="customCode" placeholder="bijv. pt" style="width:70px">
+    <input id="customName" placeholder="bijv. Português" style="width:120px">
+  </div>
+  <div class="control-group" style="margin-left:auto;">
+    <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
+    <button class="filter-btn" onclick="setFilter('missing',this)">Ontbrekend</button>
+    <button class="filter-btn" onclick="setFilter('done',this)">Vertaald</button>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <span class="progress-label" id="progressLabel">0%</span>
+</div>
+
+<div class="main">
+  <div id="stringGrid" class="string-grid"></div>
+  <div id="exportSection" style="display:none;margin-top:1.5rem;">
+    <h3 style="color:var(--gold);margin-bottom:.5rem">Exporteer JSON — plak in strings.json</h3>
+    <div class="export-area" id="exportArea"></div>
+  </div>
+  <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+</div>
+
+<script>
+// ── Strings data — ingebouwd (dezelfde als strings.json) ──────────────────────
+const STRINGS = {"nl":{"_name":"Nederlands","_flag":"🇳🇱","app_title":"CurseBot","app_subtitle":"Slayer Alliance Edition","connecting":"Verbinden...","online":"Online","offline":"Offline","starting":"Starten...","stopped":"Gestopt","btn_update":"↑ Update","btn_check":"↺ Check","btn_stop":"⏹ Stop","btn_start":"▶ Start","btn_cache":"✕ Cache","nav_dashboard":"Dashboard","nav_addons":"Mijn addons","nav_browser":"CF Browser","nav_search":"Zoeken","nav_watchlist":"Watchlist","nav_stats":"Statistieken","nav_settings":"Instellingen","nav_menu":"MENU","nav_links":"LINKS","nav_invite":"➕ Bot toevoegen","dash_live_log":"Live log","dash_stat_uptime":"Uptime","dash_stat_addons":"Mijn addons","dash_stat_watchlist":"Watchlist","dash_stat_releases":"Releases","dash_stat_guilds":"Servers","dash_stat_last_check":"Last check","addons_title":"Mijn addons","addons_empty":"Bot offline of geen addons geladen...","addons_loading":"Addons laden...","browser_title":"CF Browser","browser_subtitle":"Zoek addons en voeg toe aan watchlist","browser_placeholder":"Zoek op naam, auteur of keyword...","browser_btn_search":"Zoeken","browser_empty":"Voer een zoekterm in om te beginnen.","browser_no_results":"Geen resultaten voor '{query}'.","browser_results":"{count} resultaten voor '{query}'","browser_searching":"Zoeken naar '{query}'...","browser_btn_watch":"+ Watch","browser_btn_cf":"CF ↗","browser_offline":"Zoek '{query}' op CurseForge.com ↗","browser_added":"✓ {name} toegevoegd","search_title":"Addon zoeken","search_placeholder":"🔍  Naam, auteur of CF project ID...","search_btn":"Zoeken","search_by_id":"Op ID","search_filter":"Filter:","search_filter_all":"Alles","search_filter_stable":"Stable","search_filter_sb":"Stable+Beta","search_invalid_id":"Voer een numeriek CF project ID in","search_no_live":"Start de bot voor live CF data","wl_title":"Watchlist","wl_empty":"Watchlist leeg — gebruik /watch of de zoekfunctie.","wl_count":"({count} addons)","wl_filter_all":"Alle releases","wl_filter_stable":"Alleen Stable","wl_filter_sb":"Stable+Beta","wl_removed":"✓ {name} verwijderd","stats_title":"Download statistieken","stats_subtitle":"Groei t.o.v. vorige meting","stats_empty":"Start de bot voor statistieken...","stats_downloads":"{count} downloads","settings_title":"Instellingen","settings_security":"Beveiliging","settings_btn_keys":"API Keys bijwerken","settings_btn_clear":"Keys wissen","toast_cache_cleared":"✓ Cache gewist","toast_keys_cleared":"✓ Alle keys gewist","toast_bot_stopped":"⏹ Bot gestopt","toast_bot_started":"✓ Bot gestart","toast_bot_starting":"▶ Bot wordt gestart...","toast_bot_running":"⚠ Bot draait al","toast_bot_error":"✗ Fout: {error}","toast_bot_unavailable":"⚠ BotManager niet beschikbaar — herstart de app","toast_bot_offline":"⚠ Bot offline of kon niet stoppen","toast_check_triggered":"↺ CF check getriggerd","toast_config_saved":"✓ Configuratie opgeslagen — bot start op...","toast_wizard_error":"⚠ Wizard fout: {error}","toast_invite":"Gebruik /invite in Discord voor de link","toast_cannot_start":"⚠ Bot kon niet starten","dialog_stop_title":"Bot stoppen","dialog_stop_msg":"Bot stoppen? Hij stopt na de huidige actie.","dialog_cache_title":"Cache reset","dialog_cache_msg":"File ID cache wissen?","dialog_keys_title":"Keys wissen","dialog_keys_msg":"Alle API keys verwijderen? Je moet ze opnieuw invoeren.","dialog_check_title":"Handmatige check","dialog_check_msg":"CF nu checken? Bot stuurt notificaties bij nieuwe releases.","footer_version":"CurseBot v2.0","footer_commit":"commit {sha}"},"en":{"_name":"English","_flag":"🇬🇧"},"de":{"_name":"Deutsch","_flag":"🇩🇪","btn_check":"↺ Prüfen","btn_stop":"⏹ Stop","nav_dashboard":"Dashboard","nav_addons":"Meine Addons","nav_search":"Suchen","nav_watchlist":"Watchlist","nav_stats":"Statistiken","nav_settings":"Einstellungen"},"fr":{"_name":"Français","_flag":"🇫🇷","nav_dashboard":"Tableau de bord","nav_search":"Rechercher","nav_watchlist":"Liste de suivi","nav_stats":"Statistiques"}};
+
+// Sectie indeling
+const SECTIONS = {
+  "App & Header": ["app_title","app_subtitle","connecting","online","offline","starting","stopped"],
+  "Knoppen":      ["btn_update","btn_check","btn_stop","btn_start","btn_cache"],
+  "Navigatie":    ["nav_dashboard","nav_addons","nav_browser","nav_search","nav_watchlist","nav_stats","nav_settings","nav_menu","nav_links","nav_invite"],
+  "Dashboard":    ["dash_live_log","dash_stat_uptime","dash_stat_addons","dash_stat_watchlist","dash_stat_releases","dash_stat_guilds","dash_stat_last_check"],
+  "Addons tab":   ["addons_title","addons_empty","addons_loading"],
+  "CF Browser":   ["browser_title","browser_subtitle","browser_placeholder","browser_btn_search","browser_empty","browser_no_results","browser_results","browser_searching","browser_btn_watch","browser_btn_cf","browser_offline","browser_added"],
+  "Zoeken tab":   ["search_title","search_placeholder","search_btn","search_by_id","search_filter","search_filter_all","search_filter_stable","search_filter_sb","search_invalid_id","search_no_live"],
+  "Watchlist":    ["wl_title","wl_empty","wl_count","wl_filter_all","wl_filter_stable","wl_filter_sb","wl_removed"],
+  "Statistieken": ["stats_title","stats_subtitle","stats_empty","stats_downloads"],
+  "Instellingen": ["settings_title","settings_security","settings_btn_keys","settings_btn_clear"],
+  "Toasts":       ["toast_cache_cleared","toast_keys_cleared","toast_bot_stopped","toast_bot_started","toast_bot_starting","toast_bot_running","toast_bot_error","toast_bot_unavailable","toast_bot_offline","toast_check_triggered","toast_config_saved","toast_wizard_error","toast_invite","toast_cannot_start"],
+  "Dialogen":     ["dialog_stop_title","dialog_stop_msg","dialog_cache_title","dialog_cache_msg","dialog_keys_title","dialog_keys_msg","dialog_check_title","dialog_check_msg"],
+  "Footer":       ["footer_version","footer_commit"],
+};
+
+let translations = {};  // gebruikers input
+let currentFilter = "all";
+
+function getSourceLang() { return document.getElementById("sourceLang").value; }
+function getTargetLang() {
+  const t = document.getElementById("targetLang").value;
+  if (t === "custom") {
+    return document.getElementById("customCode").value.trim() || "custom";
+  }
+  return t;
+}
+
+function switchTarget() {
+  const t = document.getElementById("targetLang").value;
+  document.getElementById("customLangGroup").style.display = t === "custom" ? "flex" : "none";
+  // Laad bestaande vertalingen
+  translations = {};
+  if (STRINGS[t] && t !== "custom") {
+    Object.entries(STRINGS[t]).forEach(([k,v]) => {
+      if (!k.startsWith("_")) translations[k] = v;
+    });
+  }
+  render();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+
+function getSourceStrings() {
+  const lang = getSourceLang();
+  const data = STRINGS[lang] || STRINGS["nl"];
+  return Object.fromEntries(
+    Object.entries(data).filter(([k]) => !k.startsWith("_"))
+  );
+}
+
+function updateProgress() {
+  const src = getSourceStrings();
+  const total = Object.keys(src).length;
+  const done  = Object.keys(src).filter(k => (translations[k]||"").trim()).length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${pct}% (${done}/${total})`;
+}
+
+function render() {
+  const src  = getSourceStrings();
+  const grid = document.getElementById("stringGrid");
+  grid.innerHTML = "";
+
+  Object.entries(SECTIONS).forEach(([sectionName, keys]) => {
+    const sectionKeys = keys.filter(k => {
+      if (!src[k]) return false;
+      const filled = (translations[k]||"").trim().length > 0;
+      if (currentFilter === "missing" && filled) return false;
+      if (currentFilter === "done"    && !filled) return false;
+      return true;
+    });
+    if (!sectionKeys.length) return;
+
+    const secDiv = document.createElement("div");
+    const hdr = document.createElement("div");
+    hdr.className = "section-header";
+    const doneCount = sectionKeys.filter(k => (translations[k]||"").trim()).length;
+    hdr.innerHTML = `<h3>${sectionName}</h3>
+      <span style="font-size:11px;color:var(--muted)">${doneCount}/${sectionKeys.length}</span>
+      <span class="section-toggle">▼</span>`;
+    hdr.onclick = () => {
+      const b = secDiv.querySelector(".section-body");
+      b.classList.toggle("collapsed");
+      hdr.querySelector(".section-toggle").textContent =
+        b.classList.contains("collapsed") ? "▶" : "▼";
+    };
+
+    const body = document.createElement("div");
+    body.className = "section-body";
+
+    sectionKeys.forEach(key => {
+      const val  = translations[key] || "";
+      const filled = val.trim().length > 0;
+      const row  = document.createElement("div");
+      row.className = "string-row" + (filled ? " done" : " missing");
+      row.innerHTML = `
+        <div class="string-key">${key}</div>
+        <div class="string-source">${src[key] || ""}</div>
+        <textarea class="string-input ${filled?"filled":""}"
+          data-key="${key}"
+          placeholder="Vertaal hier..."
+          rows="1">${val}</textarea>
+        <div class="status-icon">${filled ? "✅" : "⬜"}</div>`;
+
+      const ta = row.querySelector("textarea");
+      ta.addEventListener("input", () => {
+        const v = ta.value;
+        translations[key] = v;
+        const f = v.trim().length > 0;
+        ta.className = `string-input ${f ? "filled" : "changed"}`;
+        row.className = `string-row ${f ? "done" : "missing"}`;
+        row.querySelector(".status-icon").textContent = f ? "✅" : "⬜";
+        updateProgress();
+      });
+      ta.addEventListener("change", () => {
+        ta.style.height = "auto";
+        ta.style.height = ta.scrollHeight + "px";
+      });
+
+      body.appendChild(row);
+    });
+
+    secDiv.appendChild(hdr);
+    secDiv.appendChild(body);
+    grid.appendChild(secDiv);
+  });
+
+  updateProgress();
+}
+
+function buildOutput() {
+  const targetCode = getTargetLang();
+  const targetName = document.getElementById("targetLang").selectedOptions[0].text.replace(/\s*[🇳🇱🇬🇧🇩🇪🇫🇷🇪🇸]+/u,"").trim();
+  const flags = {"nl":"🇳🇱","en":"🇬🇧","de":"🇩🇪","fr":"🇫🇷","es":"🇪🇸"};
+
+  const out = {
+    _name: targetName,
+    _flag: flags[targetCode] || "🌍",
+    _contributors: ["<jouw naam hier>"],
+    _status: "community"
+  };
+
+  const src = getSourceStrings();
+  Object.keys(src).forEach(k => {
+    if ((translations[k]||"").trim()) {
+      out[k] = translations[k].trim();
+    }
+  });
+
+  return {code: targetCode, data: out};
+}
+
+function exportJSON() {
+  const {code, data} = buildOutput();
+  const json = JSON.stringify({[code]: data}, null, 2);
+  const sec  = document.getElementById("exportSection");
+  sec.style.display = "block";
+  document.getElementById("exportArea").textContent = json;
+  sec.scrollIntoView({behavior:"smooth"});
+  showToast("✓ JSON klaar — kopieer en plak in strings.json");
+}
+
+function copyForPR() {
+  const {code, data} = buildOutput();
+  const json = JSON.stringify({[code]: data}, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    showToast("✓ Gekopieerd! Plak in een GitHub PR voor strings.json");
+  }).catch(() => {
+    exportJSON();
+  });
+}
+
+function loadFromFile() {
+  document.getElementById("fileInput").click();
+}
+
+function handleFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const targetCode = getTargetLang();
+      const langData = data[targetCode] || Object.values(data)[0] || {};
+      translations = {};
+      Object.entries(langData).forEach(([k,v]) => {
+        if (!k.startsWith("_")) translations[k] = v;
+      });
+      render();
+      showToast(`✓ ${file.name} geladen — ${Object.keys(translations).length} vertalingen`);
+    } catch(e) {
+      showToast("✗ Ongeldige JSON — controleer het bestand");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  setTimeout(() => t.classList.remove("on"), 3000);
+}
+
+// Init
+switchTarget();
+</script>
+</body>
+</html>

@@ -1330,6 +1330,63 @@ class CurseBotApp(ctk.CTk):
         )
         self.cfg_status_lbl.pack(anchor="w", padx=16)
 
+        # ── Taal / Language sectie ───────────────────────────────────────────
+        ctk.CTkLabel(
+            f, text="Taal / Language",
+            font=FONT_TITLE, text_color=C_TEXT
+        ).pack(anchor="w", padx=16, pady=(16, 4))
+
+        lang_frame = ctk.CTkFrame(f, fg_color=C_BG2,
+                                   border_width=1, border_color=C_BORDER,
+                                   corner_radius=8)
+        lang_frame.pack(fill="x", padx=16, pady=(0, 4))
+
+        lang_inner = ctk.CTkFrame(lang_frame, fg_color="transparent")
+        lang_inner.pack(fill="x", padx=12, pady=10)
+
+        ctk.CTkLabel(
+            lang_inner, text="Taal:",
+            font=FONT_BODY, text_color=C_TEXT
+        ).pack(side="left")
+
+        _langs      = get_languages()
+        _lang_vals  = list(_langs.values())
+        _lang_codes = list(_langs.keys())
+
+        self.lang_var = ctk.StringVar(
+            value=_langs.get(getattr(self, "_current_lang", "nl"), "Nederlands 🇳🇱")
+        )
+        lang_menu = ctk.CTkOptionMenu(
+            lang_inner,
+            values=_lang_vals,
+            variable=self.lang_var,
+            font=FONT_BODY, width=200,
+            fg_color=C_BG3, button_color=C_BG3,
+            button_hover_color=C_BG2,
+            dropdown_fg_color=C_BG2,
+            text_color=C_TEXT,
+            command=lambda val: self._change_language(
+                _lang_codes[_lang_vals.index(val)]
+            )
+        )
+        lang_menu.pack(side="left", padx=(10, 0))
+
+        ctk.CTkLabel(
+            lang_inner, text="Wijziging geldt direct",
+            font=FONT_SMALL, text_color=C_MUTED
+        ).pack(side="left", padx=(10, 0))
+
+        ctk.CTkButton(
+            lang_frame,
+            text="🌍 Help vertalen — open community editor in browser",
+            font=FONT_SMALL, height=30,
+            fg_color="transparent", hover_color=C_BG3,
+            text_color=C_MUTED, border_width=0,
+            command=lambda: webbrowser.open(
+                "https://github.com/Die0uwe/cursebot/blob/main/bot/i18n/strings.json"
+            )
+        ).pack(anchor="w", padx=12, pady=(0, 8))
+
         # ── Beveiliging sectie ────────────────────────────────────────────────
         ctk.CTkLabel(
             f, text="Beveiliging",
@@ -1828,7 +1885,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.1.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.2.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
