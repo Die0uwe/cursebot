@@ -41,12 +41,8 @@ def index():
 def api_stats():
     data = STATS.to_dict()
     # Voeg project details toe als beschikbaar
-    data["projects"] = [
-        {"id": p.id, "name": p.name, "slug": p.slug,
-         "url": p.url, "downloads": p.downloads,
-         "logo_url": p.logo_url, "summary": p.summary}
-        for p in STATS.project_list
-    ] if hasattr(STATS, "project_list") else []
+    # project_list zijn al dicts (gezet door curseforge.py)
+    data["projects"] = STATS.project_list if hasattr(STATS, "project_list") else []
     return jsonify(data)
 
 @app.route("/api/logs")
