@@ -56,11 +56,11 @@ C_TEXT     = "#cdd6f4"
 C_MUTED    = "#6c7086"
 C_DISCORD  = "#5865f2"
 
-FONT_TITLE = ("Segoe UI", 14, "bold")
-FONT_BODY  = ("Segoe UI", 13)
-FONT_SMALL = ("Segoe UI", 11)
-FONT_MONO  = ("Consolas", 12)
-FONT_MONO_SM = ("Consolas", 11)
+FONT_TITLE = ("Segoe UI", 16, "bold")
+FONT_BODY  = ("Segoe UI", 15)
+FONT_SMALL = ("Segoe UI", 13)
+FONT_MONO  = ("Consolas", 13)
+FONT_MONO_SM = ("Consolas", 12)
 
 
 # ── API helper ─────────────────────────────────────────────────────────────────
@@ -109,6 +109,53 @@ def cf_search_web(query: str) -> list[dict]:
 
 
 # ── Hoofd applicatie ───────────────────────────────────────────────────────────
+def _load_image_async(widget_ref, url: str, size: tuple = (48, 48),
+                      placeholder_text: str = "⚡", app_ref=None):
+    """
+    Laad een afbeelding asynchroon in een daemon thread.
+    Zodra geladen → update het widget via app.after().
+    widget_ref: lijst met [frame_widget] zodat we kunnen checken of nog geldig
+    """
+    def task():
+        try:
+            import urllib.request as _ur
+            from PIL import Image, ImageTk
+            import io
+            with _ur.urlopen(url, timeout=6) as r:
+                data = r.read()
+            img   = Image.open(io.BytesIO(data)).convert("RGBA").resize(
+                size, Image.LANCZOS
+            )
+            photo = ImageTk.PhotoImage(img)
+
+            def update():
+                try:
+                    frame = widget_ref[0]
+                    if not frame.winfo_exists():
+                        return
+                    # Verwijder placeholder
+                    for child in frame.winfo_children():
+                        child.destroy()
+                    import tkinter as _tk
+                    lbl = _tk.Label(
+                        frame, image=photo,
+                        bg="#10131a", bd=0, relief="flat"
+                    )
+                    lbl.image = photo   # GC guard
+                    lbl.pack(expand=True)
+                except Exception:
+                    pass
+
+            if app_ref:
+                app_ref.after(0, update)
+        except Exception:
+            pass   # Timeout of load fout — placeholder blijft
+
+    import threading
+    t = threading.Thread(target=task, daemon=True, name="ImgLoader")
+    t.start()
+
+
 class CurseBotApp(ctk.CTk):
     def __init__(self, bot_manager=None):
         super().__init__()
@@ -118,8 +165,8 @@ class CurseBotApp(ctk.CTk):
 
         # Window setup
         self.title("CurseBot — Slayer Alliance Edition")
-        self.geometry("1100x700")
-        self.minsize(960, 620)
+        self.geometry("1200x740")
+        self.minsize(1000, 660)
         self.configure(fg_color=C_BG)
 
         # State
@@ -169,21 +216,33 @@ class CurseBotApp(ctk.CTk):
         self.hdr_frame.pack(fill="x", side="top")
         self.hdr_frame.pack_propagate(False)
 
-        # Logo afbeelding — LOGOSMALL.png
+        # Logo afbeelding — LOGOSMALL.png met transparantie fix
         try:
             from PIL import Image
             _logo_path = BASE_DIR / "ui" / "assets" / "LOGOSMALL.png"
             if _logo_path.exists():
-                _logo_pil = Image.open(_logo_path).resize((36, 36), Image.LANCZOS)
+                _img = Image.open(_logo_path).convert("RGBA")
+                # Maak zwarte/donkere pixels transparant (achtergrond fix)
+                datas = _img.getdata()
+                new_data = []
+                for r, g, b, a in datas:
+                    # Pixels donkerder dan drempel → volledig transparant
+                    if r < 30 and g < 30 and b < 30:
+                        new_data.append((r, g, b, 0))
+                    else:
+                        new_data.append((r, g, b, a))
+                _img.putdata(new_data)
+                _logo_pil = _img.resize((38, 38), Image.LANCZOS)
                 self._hdr_logo_img = ctk.CTkImage(
                     light_image=_logo_pil, dark_image=_logo_pil,
-                    size=(36, 36)
+                    size=(38, 38)
                 )
                 ctk.CTkLabel(
                     self.hdr_frame,
                     image=self._hdr_logo_img,
                     text="",
-                    fg_color="transparent"
+                    fg_color="transparent",
+                    bg_color="transparent"
                 ).pack(side="left", padx=(10, 6), pady=8)
         except Exception:
             pass  # Fallback: geen logo — tekst blijft zichtbaar
@@ -428,14 +487,14 @@ class CurseBotApp(ctk.CTk):
 
             ctk.CTkLabel(
                 card, text=label,
-                font=("Segoe UI", 11, "bold"), text_color=C_MUTED
-            ).pack(anchor="w", padx=10, pady=(10, 0))
+                font=("Segoe UI", 12, "bold"), text_color=C_MUTED
+            ).pack(anchor="w", padx=10, pady=(12, 0))
 
             val_lbl = ctk.CTkLabel(
                 card, text=init,
-                font=("Consolas", 20, "bold"), text_color=color
+                font=("Consolas", 24, "bold"), text_color=color
             )
-            val_lbl.pack(anchor="w", padx=10, pady=(2, 12))
+            val_lbl.pack(anchor="w", padx=10, pady=(2, 14))
             self.dash_stat_vals[wid] = val_lbl
 
         # Live log
@@ -496,35 +555,16 @@ class CurseBotApp(ctk.CTk):
         row.pack(fill="x", pady=3)
 
         # ── Thumbnail (zelfde aanpak als CF Browser) ───────────────────────────
+        # Thumbnail async — placeholder direct, image zodra geladen
         logo_url = addon.get("logo_url", "")
+        thumb_frame = ctk.CTkFrame(row, fg_color=C_BG3, width=54, height=54,
+                                   corner_radius=6)
+        thumb_frame.pack(side="left", padx=(10, 10), pady=8)
+        thumb_frame.pack_propagate(False)
+        ctk.CTkLabel(thumb_frame, text="⚡", font=("Segoe UI", 22),
+                     text_color=C_GOLD).pack(expand=True)
         if logo_url:
-            try:
-                import urllib.request as _ur
-                from PIL import Image, ImageTk
-                import io
-                with _ur.urlopen(logo_url, timeout=4) as r:
-                    img_data = r.read()
-                img   = Image.open(io.BytesIO(img_data)).resize((48, 48), Image.LANCZOS)
-                photo = ImageTk.PhotoImage(img)
-                lbl   = tk.Label(row, image=photo, bg="#10131a", bd=0)
-                lbl.image = photo
-                lbl.pack(side="left", padx=(10, 8), pady=8)
-            except Exception:
-                # Placeholder
-                ph = ctk.CTkFrame(row, fg_color=C_BG3, width=48, height=48,
-                                  corner_radius=6)
-                ph.pack(side="left", padx=(10, 8), pady=8)
-                ph.pack_propagate(False)
-                ctk.CTkLabel(ph, text="⚡", font=("Segoe UI", 20),
-                             text_color=C_GOLD).pack(expand=True)
-        else:
-            # Geen URL — goud ⚡ placeholder
-            ph = ctk.CTkFrame(row, fg_color=C_BG3, width=48, height=48,
-                              corner_radius=6)
-            ph.pack(side="left", padx=(10, 8), pady=8)
-            ph.pack_propagate(False)
-            ctk.CTkLabel(ph, text="⚡", font=("Segoe UI", 20),
-                         text_color=C_GOLD).pack(expand=True)
+            _load_image_async([thumb_frame], logo_url, size=(54, 54), app_ref=self)
 
         # ── Info ───────────────────────────────────────────────────────────────
         info = ctk.CTkFrame(row, fg_color="transparent")
@@ -759,29 +799,16 @@ class CurseBotApp(ctk.CTk):
         inner = ctk.CTkFrame(row, fg_color="transparent")
         inner.pack(fill="x", padx=12, pady=10)
 
-        # ── Thumbnail links ────────────────────────────────────────────────────
+        # ── Thumbnail async ────────────────────────────────────────────────────
         logo_url = addon.get("logo_url", "")
+        br_thumb = ctk.CTkFrame(inner, fg_color=C_BG3, width=52, height=52,
+                                corner_radius=6)
+        br_thumb.pack(side="left", padx=(0, 10))
+        br_thumb.pack_propagate(False)
+        ctk.CTkLabel(br_thumb, text="📦", font=("Segoe UI", 20),
+                     text_color=C_MUTED).pack(expand=True)
         if logo_url:
-            try:
-                import urllib.request as _ur
-                from PIL import Image, ImageTk
-                import io
-                with _ur.urlopen(logo_url, timeout=4) as r:
-                    img_data = r.read()
-                img   = Image.open(io.BytesIO(img_data)).resize((48, 48))
-                photo = ImageTk.PhotoImage(img)
-                lbl   = tk.Label(inner, image=photo,
-                                 bg="#10131a", bd=0, relief="flat")
-                lbl.image = photo   # garbage-collection guard
-                lbl.pack(side="left", padx=(0, 10))
-            except Exception:
-                # Placeholder als thumbnail niet laadt
-                ph = ctk.CTkFrame(inner, fg_color=C_BG3, width=48, height=48,
-                                  corner_radius=6)
-                ph.pack(side="left", padx=(0, 10))
-                ph.pack_propagate(False)
-                ctk.CTkLabel(ph, text="📦", font=("Segoe UI", 18),
-                             text_color=C_MUTED).pack(expand=True)
+            _load_image_async([br_thumb], logo_url, size=(52, 52), app_ref=self)
 
         # ── Info kolom ─────────────────────────────────────────────────────────
         info = ctk.CTkFrame(inner, fg_color="transparent")
@@ -1092,9 +1119,16 @@ class CurseBotApp(ctk.CTk):
             )
             row.pack(fill="x", pady=3)
 
-            ctk.CTkLabel(
-                row, text="⚡", font=("Segoe UI", 16), text_color=C_GOLD, width=32
-            ).pack(side="left", padx=(10, 4), pady=8)
+            # Thumbnail async
+            wl_thumb = ctk.CTkFrame(row, fg_color=C_BG3, width=54, height=54,
+                                    corner_radius=6)
+            wl_thumb.pack(side="left", padx=(10, 10), pady=8)
+            wl_thumb.pack_propagate(False)
+            ctk.CTkLabel(wl_thumb, text="📋", font=("Segoe UI", 22),
+                         text_color=C_MUTED).pack(expand=True)
+            logo = item.get("logo_url") or item.get("addon_logo","")
+            if logo:
+                _load_image_async([wl_thumb], logo, size=(54, 54), app_ref=self)
 
             info = ctk.CTkFrame(row, fg_color="transparent")
             info.pack(side="left", fill="x", expand=True, pady=6)
@@ -1187,9 +1221,16 @@ class CurseBotApp(ctk.CTk):
             )
             row.pack(fill="x", pady=3)
 
-            ctk.CTkLabel(
-                row, text="📊", font=("Segoe UI", 16), width=32, text_color=C_PURPLE
-            ).pack(side="left", padx=(10, 4), pady=8)
+            # Thumbnail async
+            st_thumb = ctk.CTkFrame(row, fg_color=C_BG3, width=54, height=54,
+                                    corner_radius=6)
+            st_thumb.pack(side="left", padx=(10, 10), pady=8)
+            st_thumb.pack_propagate(False)
+            ctk.CTkLabel(st_thumb, text="📊", font=("Segoe UI", 22),
+                         text_color=C_PURPLE).pack(expand=True)
+            logo = p.get("logo_url","")
+            if logo:
+                _load_image_async([st_thumb], logo, size=(54, 54), app_ref=self)
 
             info = ctk.CTkFrame(row, fg_color="transparent")
             info.pack(side="left", fill="x", expand=True, pady=6)
@@ -1200,8 +1241,10 @@ class CurseBotApp(ctk.CTk):
             ).pack(anchor="w")
 
             dl = p.get("downloads", 0)
+            dl_str = (f"{dl/1_000_000:.1f}M" if dl >= 1_000_000
+                      else f"{dl/1_000:.1f}K" if dl >= 1_000 else str(dl))
             ctk.CTkLabel(
-                info, text=f"{dl:,} downloads",
+                info, text=f"{dl_str} downloads",
                 font=FONT_MONO_SM, text_color=C_MUTED, anchor="w"
             ).pack(anchor="w")
 
@@ -1780,7 +1823,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.9.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.0.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
