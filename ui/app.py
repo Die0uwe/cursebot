@@ -589,22 +589,66 @@ class CurseBotApp(ctk.CTk):
 
         def task():
             results = []
+
+            # ── Methode 1: directe CF API aanroep (werkt ook als bot offline is)
             try:
-                import urllib.parse
-                q_enc = urllib.parse.quote(query)
-                data = api_get(f"/api/cf/search?q={q_enc}", timeout=10)
-                if data and data.get("results"):
-                    results = data["results"]
-                else:
+                from bot.services.key_manager import get_key
+                cf_key = get_key("CURSEFORGE_API_KEY")
+                if cf_key:
+                    import urllib.request, urllib.parse, json as _json
+                    params = urllib.parse.urlencode({
+                        "gameId": 1,
+                        "searchFilter": query,
+                        "pageSize": 10,
+                        "sortField": 6,
+                        "sortOrder": "desc",
+                    })
+                    req = urllib.request.Request(
+                        f"https://api.curseforge.com/v1/mods/search?{params}",
+                        headers={"x-api-key": cf_key, "Accept": "application/json"},
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = _json.loads(resp.read())
+                    for p in data.get("data", []):
+                        authors = p.get("authors", [])
+                        logo    = (p.get("logo") or {}).get("thumbnailUrl", "")
+                        results.append({
+                            "id":          p["id"],
+                            "name":        p["name"],
+                            "slug":        p["slug"],
+                            "summary":     p.get("summary", ""),
+                            "url":         (p.get("links") or {}).get("websiteUrl", ""),
+                            "downloads":   p.get("downloadCount", 0),
+                            "logo_url":    logo,
+                            "author_name": authors[0].get("name","") if authors else "",
+                        })
+            except Exception:
+                pass
+
+            # ── Methode 2: via bot Flask API (fallback als bot online is)
+            if not results:
+                try:
+                    q_enc = urllib.parse.quote(query)
+                    data  = api_get(f"/api/cf/search?q={q_enc}", timeout=8)
+                    if data and data.get("results"):
+                        results = data["results"]
+                except Exception:
+                    pass
+
+            # ── Methode 3: zoek in eigen project_list (laatste fallback)
+            if not results:
+                try:
                     stats = api_get("/api/stats", timeout=5)
                     if stats:
                         q = query.lower()
                         results = [
                             p for p in stats.get("projects", [])
-                            if q in p.get("name","").lower() or q in p.get("slug","").lower()
+                            if q in p.get("name","").lower()
+                            or q in p.get("slug","").lower()
                         ]
-            except Exception:
-                pass
+                except Exception:
+                    pass
+
             self.after(0, lambda: self._browser_show(results, query))
 
         threading.Thread(target=task, daemon=True).start()
@@ -643,39 +687,86 @@ class CurseBotApp(ctk.CTk):
         row.pack(fill="x", pady=3)
 
         inner = ctk.CTkFrame(row, fg_color="transparent")
-        inner.pack(fill="x", padx=12, pady=8)
+        inner.pack(fill="x", padx=12, pady=10)
 
-        # Info
+        # ── Thumbnail links ────────────────────────────────────────────────────
+        logo_url = addon.get("logo_url", "")
+        if logo_url:
+            try:
+                import urllib.request as _ur
+                from PIL import Image, ImageTk
+                import io
+                with _ur.urlopen(logo_url, timeout=4) as r:
+                    img_data = r.read()
+                img   = Image.open(io.BytesIO(img_data)).resize((48, 48))
+                photo = ImageTk.PhotoImage(img)
+                lbl   = tk.Label(inner, image=photo,
+                                 bg="#10131a", bd=0, relief="flat")
+                lbl.image = photo   # garbage-collection guard
+                lbl.pack(side="left", padx=(0, 10))
+            except Exception:
+                # Placeholder als thumbnail niet laadt
+                ph = ctk.CTkFrame(inner, fg_color=C_BG3, width=48, height=48,
+                                  corner_radius=6)
+                ph.pack(side="left", padx=(0, 10))
+                ph.pack_propagate(False)
+                ctk.CTkLabel(ph, text="📦", font=("Segoe UI", 18),
+                             text_color=C_MUTED).pack(expand=True)
+
+        # ── Info kolom ─────────────────────────────────────────────────────────
         info = ctk.CTkFrame(inner, fg_color="transparent")
         info.pack(side="left", fill="x", expand=True)
 
-        ctk.CTkLabel(info, text=addon.get("name", "Onbekend"),
-                     font=FONT_BODY, text_color=C_TEXT, anchor="w").pack(anchor="w")
+        # Naam + game version badge
+        name_row = ctk.CTkFrame(info, fg_color="transparent")
+        name_row.pack(fill="x", anchor="w")
+        ctk.CTkLabel(name_row, text=addon.get("name", "Onbekend"),
+                     font=FONT_BODY, text_color=C_TEXT, anchor="w").pack(side="left")
 
+        gv = addon.get("game_versions")
+        if gv:
+            ver = gv[0] if isinstance(gv, list) else str(gv)
+            ctk.CTkLabel(
+                name_row, text=f" {ver}",
+                font=("Segoe UI", 9), text_color=C_MUTED,
+                fg_color=C_BG3, corner_radius=4,
+                padx=5, pady=1
+            ).pack(side="left", padx=(6, 0))
+
+        # Auteur + downloads
         meta = []
-        if addon.get("author_name"): meta.append(f"door {addon['author_name']}")
+        if addon.get("author_name"):
+            meta.append(f"door {addon['author_name']}")
         dl = addon.get("downloads", 0)
-        if dl: meta.append(f"{dl:,} dl")
+        if dl:
+            # K-formattering: 1500 → 1.5K, 1200000 → 1.2M
+            if dl >= 1_000_000:
+                meta.append(f"{dl/1_000_000:.1f}M dl")
+            elif dl >= 1_000:
+                meta.append(f"{dl/1_000:.1f}K dl")
+            else:
+                meta.append(f"{dl} dl")
         if meta:
             ctk.CTkLabel(info, text=" · ".join(meta),
-                         font=FONT_SMALL, text_color=C_MUTED, anchor="w").pack(anchor="w")
+                         font=FONT_SMALL, text_color=C_MUTED,
+                         anchor="w").pack(anchor="w")
 
         summary = addon.get("summary", "")
         if summary:
             ctk.CTkLabel(
                 info,
-                text=summary[:110] + "..." if len(summary) > 110 else summary,
-                font=("Segoe UI", 10), text_color=C_MUTED,
-                anchor="w", wraplength=460, justify="left"
+                text=summary[:120] + "..." if len(summary) > 120 else summary,
+                font=("Segoe UI", 11), text_color=C_MUTED,
+                anchor="w", wraplength=500, justify="left"
             ).pack(anchor="w", pady=(2, 0))
 
-        # Knoppen
+        # ── Knoppen rechts ─────────────────────────────────────────────────────
         btns = ctk.CTkFrame(inner, fg_color="transparent")
         btns.pack(side="right", padx=(8, 0))
 
         ctk.CTkButton(
             btns, text="+ Watch",
-            font=FONT_SMALL, width=78, height=28,
+            font=FONT_SMALL, width=82, height=30,
             fg_color=C_GOLD, hover_color=C_GOLD_DIM,
             text_color="#000000", corner_radius=6,
             command=lambda a=addon: (self._add_to_watchlist(a),
@@ -685,7 +776,7 @@ class CurseBotApp(ctk.CTk):
         if addon.get("url"):
             ctk.CTkButton(
                 btns, text="CF ↗",
-                font=FONT_SMALL, width=78, height=28,
+                font=FONT_SMALL, width=82, height=30,
                 fg_color="transparent", hover_color=C_BG3,
                 text_color=C_BLUE, border_width=1, border_color=C_BLUE,
                 corner_radius=6,
@@ -1423,13 +1514,45 @@ class CurseBotApp(ctk.CTk):
             if wid in self.dash_stat_vals:
                 self.dash_stat_vals[wid].configure(text=val)
 
-        # Log
+        # Log — kleur-coded per prefix
         lines = d.get("log_lines", [])
         if lines:
             self.dash_log_box.configure(state="normal")
             self.dash_log_box.delete("1.0", "end")
+
+            # Tag kleuren definiëren (alleen bij eerste keer)
+            try:
+                self.dash_log_box.tag_config("err",  foreground="#e74c3c")  # rood
+                self.dash_log_box.tag_config("warn", foreground="#f5a623")  # goud
+                self.dash_log_box.tag_config("cf",   foreground="#f5a623")  # goud
+                self.dash_log_box.tag_config("bot",  foreground="#3d9eff")  # blauw
+                self.dash_log_box.tag_config("ok",   foreground="#2ecc71")  # groen
+                self.dash_log_box.tag_config("dim",  foreground="#4a5568")  # grijs
+            except Exception:
+                pass
+
             for line in lines[-40:]:
-                self.dash_log_box.insert("end", line + "\n")
+                lu = line.upper()
+                if "[ERROR]" in lu or "✗" in line or "FOUT" in lu:
+                    tag = "err"
+                elif "[WARNING]" in lu or "⚠" in line or "WAF" in lu:
+                    tag = "warn"
+                elif "[CF]" in line:
+                    tag = "cf"
+                elif "[BOT]" in line:
+                    tag = "bot"
+                elif "✓" in line or "ONLINE" in lu or "GELADEN" in lu:
+                    tag = "ok"
+                elif "[DEBUG]" in lu:
+                    tag = "dim"
+                else:
+                    tag = None
+
+                if tag:
+                    self.dash_log_box.insert("end", line + "\n", tag)
+                else:
+                    self.dash_log_box.insert("end", line + "\n")
+
             self.dash_log_box.see("end")
             self.dash_log_box.configure(state="disabled")
 
@@ -1485,7 +1608,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.5.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v1.6.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
