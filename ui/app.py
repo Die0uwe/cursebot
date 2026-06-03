@@ -1550,7 +1550,7 @@ class CurseBotApp(ctk.CTk):
         ctk.CTkButton(
             self.ftr_frame, text="💬 Discord",
             font=("Segoe UI", 12, "bold"), text_color="#5865F2",
-            fg_color="rgba(88,101,242,0.1)", hover_color=C_BG2,
+            fg_color=C_BG2, hover_color=C_BG3,
             border_color="#5865F2", border_width=1,
             height=28, width=110, corner_radius=6,
             command=lambda: webbrowser.open("https://discord.gg/y8Pu5qsEbQ")
