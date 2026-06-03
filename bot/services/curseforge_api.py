@@ -118,6 +118,13 @@ class CurseForgeService:
                 headers=self._headers,
                 params={"pageSize": 1, "sortOrder": "desc"},
             )
+            # 403 = API key probleem of rate limit — log duidelijk en skip
+            if r.status_code == 403:
+                log.warning(
+                    f"[CF] 403 op addon {project_id} — API key ongeldig of rate limit. "
+                    f"Controleer CURSEFORGE_API_KEY in .env"
+                )
+                return None
             r.raise_for_status()
             files = r.json().get("data", [])
         if not files:
