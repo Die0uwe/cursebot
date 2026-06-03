@@ -223,7 +223,7 @@ class CurseBotApp(ctk.CTk):
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
         self.hdr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=56,
+            self, fg_color=C_BG3, corner_radius=0, height=100,
             border_width=1, border_color=C_BORDER
         )
         self.hdr_frame.pack(fill="x", side="top")
@@ -245,10 +245,10 @@ class CurseBotApp(ctk.CTk):
                     else:
                         new_data.append((r, g, b, a))
                 _img.putdata(new_data)
-                _logo_pil = _img.resize((38, 38), Image.LANCZOS)
+                _logo_pil = _img.resize((72, 72), Image.LANCZOS)
                 self._hdr_logo_img = ctk.CTkImage(
                     light_image=_logo_pil, dark_image=_logo_pil,
-                    size=(38, 38)
+                    size=(72, 72)
                 )
                 ctk.CTkLabel(
                     self.hdr_frame,
@@ -256,14 +256,14 @@ class CurseBotApp(ctk.CTk):
                     text="",
                     fg_color="transparent",
                     bg_color="transparent"
-                ).pack(side="left", padx=(10, 6), pady=8)
+                ).pack(side="left", padx=(12, 8), pady=8)
         except Exception:
             pass  # Fallback: geen logo — tekst blijft zichtbaar
 
         # Tekst logo
         self.hdr_logo_lbl = ctk.CTkLabel(
             self.hdr_frame, text="CurseBot",
-            font=("Segoe UI", 16, "bold"), text_color=C_GOLD
+            font=("Segoe UI", 20, "bold"), text_color=C_GOLD
         )
         self.hdr_logo_lbl.pack(side="left", padx=(0, 4), pady=12)
 
@@ -442,6 +442,35 @@ class CurseBotApp(ctk.CTk):
             )
             btn.pack(fill="x", padx=8, pady=1)
 
+        # Gaming Tools logo onderaan sidebar
+        try:
+            from PIL import Image
+            _gt_path = BASE_DIR / "ui" / "assets" / "gaming_tools.webp"
+            if _gt_path.exists():
+                _gt_img = Image.open(_gt_path).convert("RGBA")
+                # Schaal naar sidebar breedte (max 160px breed)
+                _w, _h = _gt_img.size
+                _new_w = 160
+                _new_h = int(_h * (_new_w / _w))
+                _gt_pil = _gt_img.resize((_new_w, _new_h), Image.LANCZOS)
+                self._gt_img = ctk.CTkImage(
+                    light_image=_gt_pil, dark_image=_gt_pil,
+                    size=(_new_w, _new_h)
+                )
+                gt_btn = ctk.CTkLabel(
+                    self.sb_frame,
+                    image=self._gt_img,
+                    text="",
+                    fg_color="transparent",
+                    cursor="hand2"
+                )
+                gt_btn.pack(side="bottom", padx=10, pady=(6, 10))
+                gt_btn.bind("<Button-1>", lambda e: webbrowser.open(
+                    "https://gaming.tools"
+                ))
+        except Exception:
+            pass
+
     # ── MAIN CONTENT (tab systeem) ─────────────────────────────────────────────
     def _build_main(self):
         self.main_frame = ctk.CTkFrame(self.body_frame, fg_color=C_BG, corner_radius=0)
@@ -450,7 +479,7 @@ class CurseBotApp(ctk.CTk):
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         self.tab_frames = {}
-        for tab_id in ["dashboard", "addons", "search", "watchlist", "stats", "settings"]:
+        for tab_id in ["dashboard", "addons", "browser", "search", "watchlist", "stats", "settings"]:
             frame = ctk.CTkScrollableFrame(
                 self.main_frame, fg_color=C_BG, corner_radius=0,
                 scrollbar_button_color=C_BG3
@@ -1498,35 +1527,43 @@ class CurseBotApp(ctk.CTk):
     # ── FOOTER (wid: ftr_*) ───────────────────────────────────────────────────
     def _build_footer(self):
         self.ftr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=30,
+            self, fg_color=C_BG3, corner_radius=0, height=42,
             border_width=1, border_color=C_BORDER
         )
         self.ftr_frame.pack(fill="x", side="bottom")
         self.ftr_frame.pack_propagate(False)
 
+        # Versie label — groter en duidelijker
         self.ftr_version_lbl = ctk.CTkLabel(
             self.ftr_frame, text="CurseBot v2.0",
-            font=("Segoe UI", 9), text_color=C_MUTED
+            font=("Segoe UI", 13, "bold"), text_color=C_TEXT
         )
-        self.ftr_version_lbl.pack(side="left", padx=12)
+        self.ftr_version_lbl.pack(side="left", padx=14)
 
         self.ftr_sha_lbl = ctk.CTkLabel(
             self.ftr_frame, text="",
-            font=("Consolas", 9), text_color=C_MUTED
+            font=("Consolas", 11), text_color=C_MUTED
         )
         self.ftr_sha_lbl.pack(side="left", padx=(0, 12))
 
-        for label, url in [
-            ("dieouwe.nl", "https://www.dieouwe.nl"),
-            ("discord.gg/y8Pu5qsEbQ", "https://discord.gg/y8Pu5qsEbQ"),
-        ]:
-            ctk.CTkButton(
-                self.ftr_frame, text=label,
-                font=("Segoe UI", 9), text_color=C_MUTED,
-                fg_color="transparent", hover_color=C_BG2,
-                height=24, width=10,
-                command=lambda u=url: webbrowser.open(u)
-            ).pack(side="right", padx=4)
+        # Discord knop — icoon stijl
+        ctk.CTkButton(
+            self.ftr_frame, text="💬 Discord",
+            font=("Segoe UI", 12, "bold"), text_color="#5865F2",
+            fg_color="rgba(88,101,242,0.1)", hover_color=C_BG2,
+            border_color="#5865F2", border_width=1,
+            height=28, width=110, corner_radius=6,
+            command=lambda: webbrowser.open("https://discord.gg/y8Pu5qsEbQ")
+        ).pack(side="right", padx=(4, 10))
+
+        # dieouwe.nl link
+        ctk.CTkButton(
+            self.ftr_frame, text="dieouwe.nl",
+            font=("Segoe UI", 12), text_color=C_MUTED,
+            fg_color="transparent", hover_color=C_BG2,
+            height=28, width=90, border_width=0,
+            command=lambda: webbrowser.open("https://www.dieouwe.nl")
+        ).pack(side="right", padx=2)
 
     # ── WATCHLIST ACTIES ───────────────────────────────────────────────────────
     def _add_to_watchlist(self, addon: dict):
@@ -1953,7 +1990,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.4.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.5.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
