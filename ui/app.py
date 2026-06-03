@@ -223,7 +223,7 @@ class CurseBotApp(ctk.CTk):
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
         self.hdr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=100,
+            self, fg_color=C_BG3, corner_radius=0, height=130,
             border_width=1, border_color=C_BORDER
         )
         self.hdr_frame.pack(fill="x", side="top")
@@ -245,10 +245,10 @@ class CurseBotApp(ctk.CTk):
                     else:
                         new_data.append((r, g, b, a))
                 _img.putdata(new_data)
-                _logo_pil = _img.resize((72, 72), Image.LANCZOS)
+                _logo_pil = _img.resize((120, 120), Image.LANCZOS)
                 self._hdr_logo_img = ctk.CTkImage(
                     light_image=_logo_pil, dark_image=_logo_pil,
-                    size=(72, 72)
+                    size=(120, 120)
                 )
                 ctk.CTkLabel(
                     self.hdr_frame,
@@ -256,16 +256,16 @@ class CurseBotApp(ctk.CTk):
                     text="",
                     fg_color="transparent",
                     bg_color="transparent"
-                ).pack(side="left", padx=(12, 8), pady=8)
+                ).pack(side="left", padx=(8, 6), pady=4)
         except Exception:
             pass  # Fallback: geen logo — tekst blijft zichtbaar
 
         # Tekst logo
         self.hdr_logo_lbl = ctk.CTkLabel(
             self.hdr_frame, text="CurseBot",
-            font=("Segoe UI", 20, "bold"), text_color=C_GOLD
+            font=("Segoe UI", 28, "bold"), text_color=C_GOLD
         )
-        self.hdr_logo_lbl.pack(side="left", padx=(0, 4), pady=12)
+        self.hdr_logo_lbl.pack(side="left", padx=(0, 4), pady=8)
 
         self.hdr_edition_lbl = ctk.CTkLabel(
             self.hdr_frame, text="Slayer Alliance Edition",
@@ -311,7 +311,7 @@ class CurseBotApp(ctk.CTk):
             text_color=C_BLUE,
             command=self._do_check
         )
-        self.hdr_check_btn.pack(side="right", padx=(0, 6), pady=10)
+        self.hdr_check_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
 
         self.hdr_stop_btn = ctk.CTkButton(
             self.hdr_frame, text="⏹ Stop",
@@ -321,7 +321,7 @@ class CurseBotApp(ctk.CTk):
             text_color=C_RED,
             command=self._do_stop
         )
-        self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=10)
+        self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
 
         # Herstart knop
         self.hdr_restart_btn = ctk.CTkButton(
@@ -332,7 +332,7 @@ class CurseBotApp(ctk.CTk):
             text_color=C_GOLD,
             command=self._do_restart
         )
-        self.hdr_restart_btn.pack(side="right", padx=(0, 6), pady=10)
+        self.hdr_restart_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
 
         # Start knop — zichtbaar als bot offline is
         self.hdr_start_btn = ctk.CTkButton(
@@ -343,7 +343,7 @@ class CurseBotApp(ctk.CTk):
             text_color=C_GREEN,
             command=self._do_start
         )
-        self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=10)
+        self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
         self.hdr_start_btn.pack_forget()  # verborgen bij start (bot draait)
 
         self.hdr_reset_btn = ctk.CTkButton(
@@ -1556,14 +1556,16 @@ class CurseBotApp(ctk.CTk):
             command=lambda: webbrowser.open("https://discord.gg/y8Pu5qsEbQ")
         ).pack(side="right", padx=(4, 10))
 
-        # dieouwe.nl link
+        # dieouwe.nl knop — goud donker rand
         ctk.CTkButton(
             self.ftr_frame, text="dieouwe.nl",
-            font=("Segoe UI", 12), text_color=C_MUTED,
-            fg_color="transparent", hover_color=C_BG2,
-            height=28, width=90, border_width=0,
+            font=("Segoe UI", 12, "bold"), text_color=C_GOLD,
+            fg_color=C_BG2, hover_color=C_BG3,
+            height=28, width=100,
+            border_color="#8B5E1A", border_width=1,
+            corner_radius=6,
             command=lambda: webbrowser.open("https://www.dieouwe.nl")
-        ).pack(side="right", padx=2)
+        ).pack(side="right", padx=(2, 6))
 
     # ── WATCHLIST ACTIES ───────────────────────────────────────────────────────
     def _add_to_watchlist(self, addon: dict):
@@ -1695,13 +1697,13 @@ class CurseBotApp(ctk.CTk):
             elif online:
                 # Bot online: Stop zichtbaar, Start verborgen
                 self.hdr_start_btn.pack_forget()
-                self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=10)
+                self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
                 self.hdr_status_dot.configure(text_color=C_GREEN)
                 self.hdr_status_lbl.configure(text="Online", text_color=C_GREEN)
             else:
                 # Bot offline: Start zichtbaar, Stop verborgen
                 self.hdr_stop_btn.pack_forget()
-                self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=10)
+                self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=(0, 16))
                 self.hdr_status_dot.configure(text_color=C_RED)
                 self.hdr_status_lbl.configure(text="Offline", text_color=C_RED)
         except Exception:
@@ -1990,7 +1992,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.5.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.6.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
