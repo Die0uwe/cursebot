@@ -411,8 +411,8 @@ class CurseBotApp(ctk.CTk):
         links = [
             ("➕ Bot toevoegen", C_GOLD,
              "https://discord.com/oauth2/authorize"
-             "?client_id=BOT_CLIENT_ID"
-             "&permissions=2147601408"
+             "?client_id=1511308796591603845"
+             "&permissions=274878262336"
              "&scope=bot+applications.commands"),
             ("⚡ CurseForge", C_GOLD,
              "https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&search=DIEOUWE"),

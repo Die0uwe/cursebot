@@ -15,7 +15,7 @@ GNU General Public License for more details.
 -->
 # CurseBot — Slayer Alliance Edition
 
-[![Voeg toe aan Discord](https://img.shields.io/badge/Discord-Bot_toevoegen-5865F2?logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands)
+[![Voeg toe aan Discord](https://img.shields.io/badge/Discord-Bot_toevoegen-5865F2?logo=discord&logoColor=white)](https://discord.com/oauth2/authorize?client_id=1511308796591603845&permissions=274878262336&scope=bot+applications.commands)
 [![GitHub](https://img.shields.io/badge/GitHub-Die0uwe%2Fcursebot-gold?logo=github)](https://github.com/Die0uwe/cursebot)
 [![Licentie](https://img.shields.io/badge/Licentie-GPL_v3-green)](https://www.gnu.org/licenses/gpl-3.0.html)
 
@@ -23,7 +23,7 @@ Automatische CurseForge release monitor voor Discord. Stuurt embeds bij elke nie
 
 ## ➕ Bot toevoegen aan je server
 
-**[Klik hier om CurseBot toe te voegen](https://discord.com/oauth2/authorize?client_id=BOT_CLIENT_ID&permissions=2147601408&scope=bot+applications.commands)**
+**[Klik hier om CurseBot toe te voegen](https://discord.com/oauth2/authorize?client_id=1511308796591603845&permissions=274878262336&scope=bot+applications.commands)**
 
 Of gebruik in Discord: `/invite` — genereert een verse invite link.
 
