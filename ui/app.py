@@ -323,6 +323,17 @@ class CurseBotApp(ctk.CTk):
         )
         self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=10)
 
+        # Herstart knop
+        self.hdr_restart_btn = ctk.CTkButton(
+            self.hdr_frame, text="↺ Herstart",
+            font=FONT_SMALL, width=82, height=28,
+            fg_color=C_BG2, hover_color=C_BG3,
+            border_color=C_GOLD, border_width=1,
+            text_color=C_GOLD,
+            command=self._do_restart
+        )
+        self.hdr_restart_btn.pack(side="right", padx=(0, 6), pady=10)
+
         # Start knop — zichtbaar als bot offline is
         self.hdr_start_btn = ctk.CTkButton(
             self.hdr_frame, text="▶ Start",
@@ -1608,6 +1619,33 @@ class CurseBotApp(ctk.CTk):
                 self.after(0, lambda: self._update_start_stop_buttons(online=False))
         threading.Thread(target=task, daemon=True).start()
 
+    def _do_restart(self):
+        """Stop de bot en start hem opnieuw via BotManager."""
+        if self._bot_manager is None:
+            self._toast("⚠ BotManager niet beschikbaar")
+            return
+
+        def task():
+            self.after(0, lambda: self._toast("↺ Herstart bezig..."))
+            self.after(0, lambda: self.hdr_restart_btn.configure(state="disabled"))
+            try:
+                # Stop indien draaiend
+                if self._bot_manager.is_running:
+                    self._bot_manager.stop()
+                    import time; time.sleep(3)
+                # Opnieuw starten
+                ok = self._bot_manager.start()
+                if ok:
+                    self.after(0, lambda: self._toast("✓ Bot herstart"))
+                else:
+                    self.after(0, lambda: self._toast("⚠ Herstart mislukt"))
+            except Exception as e:
+                self.after(0, lambda: self._toast(f"✗ Fout: {e}"))
+            finally:
+                self.after(0, lambda: self.hdr_restart_btn.configure(state="normal"))
+
+        threading.Thread(target=task, daemon=True).start()
+
     def _update_start_stop_buttons(self, online: bool = False, starting: bool = False):
         """Wissel zichtbaarheid Start/Stop knop op basis van bot-state."""
         try:
@@ -1915,7 +1953,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.3.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.4.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
