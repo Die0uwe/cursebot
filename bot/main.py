@@ -22,6 +22,7 @@ COGS = [
     "bot.cogs.curseforge",
     "bot.cogs.admin",
     "bot.cogs.watchlist",
+    "bot.cogs.help",
 ]
 
 

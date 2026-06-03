@@ -30,7 +30,8 @@ class BotStats:
     project_list:        list          = field(default_factory=list)
     force_check:         bool          = False
     bot_online:          bool          = False
-    stop_requested:      bool          = False   # ← NIEUW: stop via dashboard
+    stop_requested:      bool          = False   # stop via dashboard
+    watchlist_count:     int           = 0       # aantal watchlist items (alle guilds)
 
     def uptime_str(self) -> str:
         secs = int(time.time() - self.start_time)
@@ -55,6 +56,7 @@ class BotStats:
             "log_lines":         self.log_buffer[-50:],
             "bot_online":        self.bot_online,
             "stop_requested":    self.stop_requested,
+            "watchlist_count":   self.watchlist_count,
         }
 
     def add_log(self, line: str):
@@ -67,7 +69,7 @@ class BotStats:
 STATS = BotStats()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: stats.py │ v2.1.0 │ 2026-06-03                             ║
-# ║  Add: stop_requested flag voor dashboard Stop knop                 ║
+# ║  File: stats.py │ v2.2.0 │ 2026-06-03                             ║
+# ║  Add: watchlist_count veld voor dashboard stat card               ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

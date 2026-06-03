@@ -1499,7 +1499,10 @@ class CurseBotApp(ctk.CTk):
             self.ftr_sha_lbl.configure(text=f"commit {sha[:8]}")
 
         # Stat cards
-        wl_count = len(self._watchlist) if self._watchlist else "–"
+        # Watchlist count: uit STATS (alle guilds) of fallback naar lokale cache
+        wl_count = d.get("watchlist_count")
+        if wl_count is None:
+            wl_count = len(self._watchlist) if self._watchlist else "–" 
         vals = {
             "dash_stat_uptime":    d.get("uptime","–"),
             "dash_stat_guilds":    str(d.get("guilds","–")),
@@ -1608,7 +1611,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.6.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v1.7.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
