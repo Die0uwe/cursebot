@@ -495,43 +495,88 @@ class CurseBotApp(ctk.CTk):
         )
         row.pack(fill="x", pady=3)
 
-        ctk.CTkLabel(
-            row, text="⚡",
-            font=("Segoe UI", 18), text_color=C_GOLD, width=36
-        ).pack(side="left", padx=(10, 6), pady=8)
+        # ── Thumbnail (zelfde aanpak als CF Browser) ───────────────────────────
+        logo_url = addon.get("logo_url", "")
+        if logo_url:
+            try:
+                import urllib.request as _ur
+                from PIL import Image, ImageTk
+                import io
+                with _ur.urlopen(logo_url, timeout=4) as r:
+                    img_data = r.read()
+                img   = Image.open(io.BytesIO(img_data)).resize((48, 48), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                lbl   = tk.Label(row, image=photo, bg="#10131a", bd=0)
+                lbl.image = photo
+                lbl.pack(side="left", padx=(10, 8), pady=8)
+            except Exception:
+                # Placeholder
+                ph = ctk.CTkFrame(row, fg_color=C_BG3, width=48, height=48,
+                                  corner_radius=6)
+                ph.pack(side="left", padx=(10, 8), pady=8)
+                ph.pack_propagate(False)
+                ctk.CTkLabel(ph, text="⚡", font=("Segoe UI", 20),
+                             text_color=C_GOLD).pack(expand=True)
+        else:
+            # Geen URL — goud ⚡ placeholder
+            ph = ctk.CTkFrame(row, fg_color=C_BG3, width=48, height=48,
+                              corner_radius=6)
+            ph.pack(side="left", padx=(10, 8), pady=8)
+            ph.pack_propagate(False)
+            ctk.CTkLabel(ph, text="⚡", font=("Segoe UI", 20),
+                         text_color=C_GOLD).pack(expand=True)
 
+        # ── Info ───────────────────────────────────────────────────────────────
         info = ctk.CTkFrame(row, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, pady=6)
+        info.pack(side="left", fill="x", expand=True, pady=8)
 
         ctk.CTkLabel(
-            info, text=addon.get("name","?"),
+            info, text=addon.get("name", "?"),
             font=FONT_BODY, text_color=C_TEXT, anchor="w"
         ).pack(anchor="w")
 
-        dl = addon.get("downloads", 0)
-        author = addon.get("author_name","") or "dieouwe"
+        dl     = addon.get("downloads", 0)
+        author = addon.get("author_name", "") or "dieouwe"
+        # K/M formattering
+        dl_str = (f"{dl/1_000_000:.1f}M" if dl >= 1_000_000
+                  else f"{dl/1_000:.1f}K" if dl >= 1_000
+                  else str(dl))
         ctk.CTkLabel(
-            info, text=f"{author} · {dl:,} downloads",
+            info, text=f"{author} · {dl_str} downloads",
             font=FONT_MONO_SM, text_color=C_MUTED, anchor="w"
         ).pack(anchor="w")
 
-        url = addon.get("url","")
+        # Summary indien beschikbaar
+        summary = addon.get("summary", "")
+        if summary:
+            ctk.CTkLabel(
+                info,
+                text=summary[:100] + "..." if len(summary) > 100 else summary,
+                font=("Segoe UI", 11), text_color=C_MUTED,
+                anchor="w", wraplength=500, justify="left"
+            ).pack(anchor="w", pady=(1, 0))
+
+        # ── Knoppen ────────────────────────────────────────────────────────────
+        url = addon.get("url", "")
         if url:
             ctk.CTkButton(
                 row, text="CF ↗", font=FONT_SMALL,
-                width=48, height=26,
+                width=52, height=28,
                 fg_color="transparent", hover_color=C_BG3,
                 border_color=C_BLUE, border_width=1, text_color=C_BLUE,
+                corner_radius=6,
                 command=lambda u=url: webbrowser.open(u)
-            ).pack(side="right", padx=(4, 4), pady=8)
+            ).pack(side="right", padx=(4, 8), pady=8)
 
         if show_add:
             ctk.CTkButton(
                 row, text="+ Watch", font=FONT_SMALL,
-                width=64, height=26,
+                width=72, height=28,
                 fg_color="transparent", hover_color=C_BG3,
                 border_color=C_GREEN, border_width=1, text_color=C_GREEN,
-                command=lambda a=addon: self._add_to_watchlist(a)
+                corner_radius=6,
+                command=lambda a=addon: (self._add_to_watchlist(a),
+                                         self._toast(f"✓ {a.get('name','?')} toegevoegd"))
             ).pack(side="right", padx=(0, 4), pady=8)
 
     # ── TAB: CF BROWSER ───────────────────────────────────────────────────────
@@ -1735,7 +1780,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.8.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v1.9.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
