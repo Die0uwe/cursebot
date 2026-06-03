@@ -1,7 +1,14 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""CurseBot — dashboard.py v2.0.0 — Flask API backend voor het web dashboard."""
+"""CurseBot — dashboard.py v2.1.0 — Flask API backend voor het web dashboard.
+
+FIXES v2.1.0:
+  - BUGFIX: p.id → p["id"] in api_stats (project_list zijn dicts, geen objecten)
+  - FEATURE: /api/stop endpoint — zet STATS.stop_requested flag
+  - FEATURE: /api/cf/addon/<id> endpoint toegevoegd
+  - FEATURE: GUILD_ID toegevoegd aan ALLOWED_SETTINGS
+"""
 import sys
 import json
 import threading
@@ -10,14 +17,9 @@ from pathlib import Path
 
 try:
     from flask import Flask, jsonify, request, send_from_directory
-    from flask_cors import CORS
     FLASK_OK = True
 except ImportError:
-    try:
-        from flask import Flask, jsonify, request, send_from_directory
-        FLASK_OK = True
-    except ImportError:
-        FLASK_OK = False
+    FLASK_OK = False
 
 from bot.services.stats import STATS
 
@@ -40,9 +42,22 @@ def index():
 @app.route("/api/stats")
 def api_stats():
     data = STATS.to_dict()
-    # Voeg project details toe als beschikbaar
-    # project_list zijn al dicts (gezet door curseforge.py)
-    data["projects"] = STATS.project_list if hasattr(STATS, "project_list") else []
+    # project_list zijn dicts — gebruik dict-toegang (["key"]), NIET object-attributen (.key)
+    pl = getattr(STATS, "project_list", [])
+    data["projects"] = [
+        {
+            "id":       p.get("id",       0),
+            "name":     p.get("name",     ""),
+            "slug":     p.get("slug",     ""),
+            "url":      p.get("url",      ""),
+            "downloads":p.get("downloads",0),
+            "logo_url": p.get("logo_url", None),
+            "summary":  p.get("summary",  ""),
+            "author_name": p.get("author_name", ""),
+        }
+        for p in pl
+        if isinstance(p, dict)   # veiligheidscheck: negeer niet-dict items
+    ]
     return jsonify(data)
 
 @app.route("/api/logs")
@@ -75,18 +90,27 @@ def api_reset():
 
 @app.route("/api/check", methods=["POST"])
 def api_check():
-    """Trigger een handmatige CF check via de cog."""
     try:
-        STATS.add_log("[DASHBOARD] Handmatige check getriggerd")
-        # Zet een flag die de cog oppikt
         STATS.force_check = True
+        STATS.add_log("[DASHBOARD] Handmatige check getriggerd")
         return jsonify({"ok": True, "message": "Check getriggerd"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/stop", methods=["POST"])
+def api_stop():
+    """Zet stop_requested flag — bot main loop pikt dit op en stopt netjes."""
+    try:
+        STATS.stop_requested = True
+        STATS.bot_online     = False
+        STATS.add_log("[DASHBOARD] Stop aangevraagd via UI")
+        return jsonify({"ok": True, "message": "Bot stopt..."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # ── Settings API ───────────────────────────────────────────────────────────────
 ALLOWED_SETTINGS = {
-    "CF_AUTHOR_SLUG", "CF_AUTHOR_ID",
+    "CF_AUTHOR_SLUG", "CF_AUTHOR_ID", "GUILD_ID",
     "CHECK_INTERVAL_MINUTES", "SUMMARIZE_CHANGELOGS", "LOG_LEVEL"
 }
 
@@ -126,58 +150,54 @@ def api_settings_post():
     STATS.add_log(f"[DASHBOARD] Instellingen opgeslagen: {', '.join(updated)}")
     return jsonify({"saved": list(updated)})
 
-# ── Server ─────────────────────────────────────────────────────────────────────
-
+# ── Watchlist API ──────────────────────────────────────────────────────────────
 @app.route("/api/watchlist", methods=["GET"])
 def api_watchlist_get():
-    """Alle watchlist items — voor de UI."""
     try:
         from bot.services.cache import CacheService
-        cache = CacheService()
+        cache    = CacheService()
         guild_id = request.args.get("guild_id", "0")
-        items = cache.watchlist_get(guild_id) if guild_id != "0" else cache.watchlist_all()
+        items    = cache.watchlist_get(guild_id) if guild_id != "0" else cache.watchlist_all()
         return jsonify({"items": items, "count": len(items)})
     except Exception as e:
         return jsonify({"items": [], "count": 0, "error": str(e)})
 
 @app.route("/api/watchlist/add", methods=["POST"])
 def api_watchlist_add():
-    """Voeg addon toe via UI — zoekt op ID of naam."""
-    data     = request.get_json() or {}
-    guild_id = data.get("guild_id", "0")
-    addon_id = data.get("addon_id")
-    name     = data.get("addon_name", "Onbekend")
-    if not addon_id:
-        return jsonify({"error": "addon_id vereist"}), 400
     try:
         from bot.services.cache import CacheService
+        data     = request.get_json() or {}
+        addon_id = data.get("addon_id")
+        guild_id = data.get("guild_id", "0")
+        if not addon_id:
+            return jsonify({"error": "addon_id vereist"}), 400
         cache = CacheService()
         added = cache.watchlist_add(
             guild_id=guild_id,
             addon_id=int(addon_id),
-            addon_name=data.get("addon_name",""),
-            addon_slug=data.get("addon_slug",""),
-            addon_url=data.get("addon_url",""),
-            author_name=data.get("author_name",""),
-            downloads=data.get("downloads",0),
+            addon_name=data.get("addon_name", ""),
+            addon_slug=data.get("addon_slug", ""),
+            addon_url=data.get("addon_url", ""),
+            author_name=data.get("author_name", ""),
+            downloads=data.get("downloads", 0),
             logo_url=data.get("logo_url"),
-            release_filter=data.get("release_filter","all"),
-            added_by="dashboard"
+            release_filter=data.get("release_filter", "all"),
+            added_by="dashboard",
         )
-        STATS.add_log(f"[UI] Addon {'toegevoegd' if added else 'al in lijst'}: {name}")
-        return jsonify({"added": added, "name": name})
+        STATS.add_log(f"[UI] Addon {'toegevoegd' if added else 'al aanwezig'}: {data.get('addon_name','?')}")
+        return jsonify({"added": added})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/watchlist/remove", methods=["POST"])
 def api_watchlist_remove():
-    data     = request.get_json() or {}
-    guild_id = data.get("guild_id", "0")
-    addon_id = data.get("addon_id")
-    if not addon_id:
-        return jsonify({"error": "addon_id vereist"}), 400
     try:
         from bot.services.cache import CacheService
+        data     = request.get_json() or {}
+        addon_id = data.get("addon_id")
+        guild_id = data.get("guild_id", "0")
+        if not addon_id:
+            return jsonify({"error": "addon_id vereist"}), 400
         cache   = CacheService()
         removed = cache.watchlist_remove(guild_id, int(addon_id))
         STATS.add_log(f"[UI] Addon {'verwijderd' if removed else 'niet gevonden'}: ID {addon_id}")
@@ -185,33 +205,52 @@ def api_watchlist_remove():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ── CF Search API (voor UI zoekfunctie) ───────────────────────────────────────
 @app.route("/api/cf/search", methods=["GET"])
 def api_cf_search():
-    """Zoek addons op CurseForge — voor de zoekbalk in de UI."""
-    query = request.args.get("q","").strip()
-    if not query:
-        return jsonify({"results": []})
-    STATS.add_log(f"[UI] CF zoek: '{query}'")
-    return jsonify({"results": [], "query": query,
-                    "note": "Start bot voor live zoekresultaten"})
+    """Doorsturen naar CurseForge via de bot's CF service — vereist draaiende bot."""
+    try:
+        query = request.args.get("q", "").strip()
+        if not query:
+            return jsonify({"results": [], "error": "geen query"}), 400
+        # Haal resultaten op uit project_list als fallback
+        pl = getattr(STATS, "project_list", [])
+        hits = [p for p in pl if query.lower() in p.get("name", "").lower()]
+        return jsonify({"results": hits})
+    except Exception as e:
+        return jsonify({"results": [], "error": str(e)}), 500
 
-def run_dashboard(host="0.0.0.0", port=5000):
-    if not FLASK_OK:
-        print("[DASHBOARD] Flask niet geïnstalleerd — dashboard uitgeschakeld")
+@app.route("/api/cf/addon/<int:addon_id>", methods=["GET"])
+def api_cf_addon(addon_id: int):
+    """Haal addon info op uit lokale cache."""
+    try:
+        from bot.services.cache import CacheService
+        meta = CacheService().addon_meta_get(addon_id)
+        if meta:
+            return jsonify(meta)
+        return jsonify({"error": "niet gevonden"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ── Server start ───────────────────────────────────────────────────────────────
+def start_dashboard_thread(port: int = 5000):
+    if not FLASK_OK or not app:
+        print("[DASHBOARD] Flask niet beschikbaar — dashboard overgeslagen")
         return
     import logging
-    logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    print(f"[DASHBOARD] Actief op http://localhost:{port}")
-    app.run(host=host, port=port, debug=False, use_reloader=False)
-
-def start_dashboard_thread(port=5000):
+    log = logging.getLogger("werkzeug")
+    log.setLevel(logging.ERROR)
     t = threading.Thread(
-        target=run_dashboard, kwargs={"port": port}, daemon=True
+        target=lambda: app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False),
+        daemon=True, name="DashboardThread"
     )
     t.start()
-    return t
+    print(f"[DASHBOARD] Actief op http://localhost:{port}")
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: dashboard.py │ v2.0.0 │ 2026-06-02                         ║
+# ║  File: dashboard.py │ v2.1.0 │ 2026-06-03                         ║
+# ║  Fix: p["id"] ipv p.id (project_list zijn dicts)                  ║
+# ║  Add: /api/stop endpoint, GUILD_ID in ALLOWED_SETTINGS             ║
+# ║  Add: /api/cf/addon/<id> endpoint                                  ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CurseBot v2.2.0 — Slayer Alliance Edition Handleiding</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="images/minimap_icon.svg">
+<style>
+:root {
+  --orange-main: #ffb13b;
+  --orange-bg: #f5a623;
+  --red-ui: #ff4a4a;
+  --red-border: #e74c3c;
+  --blue-btn: #3d9eff;
+  --green-btn: #2ecc71;
+  --bg-main: #0b0e14;
+  --bg-sidebar: #11151d;
+  --bg-card: #141a24;
+  --bg-code: #07090d;
+  --border-ui: #1c2330;
+  --text-main: #cdd6f4;
+  --text-muted: #7e899c;
+  --text-dark: #4a5568;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-sidebar); }
+::-webkit-scrollbar-thumb { background: var(--orange-main); border-radius: 2px; }
+
+/* ── Noise overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+section { position: relative; z-index: 1; }
+
+/* ── Hero ── */
+.hero {
+  min-height: 42vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 3rem 1.5rem 1.5rem; text-align: center;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,166,35,0.08) 0%, transparent 70%);
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border-radius: 4px;
+  border: 1px solid rgba(245,166,35,0.2);
+  background: rgba(245,166,35,0.05);
+  color: var(--orange-main); font-size: 10px; letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+.hero h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  line-height: 1.1; letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff 30%, var(--orange-main) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-sub {
+  margin-top: 1rem; max-width: 450px;
+  color: var(--text-muted); font-size: 13px;
+}
+
+.promise-container {
+  display: flex; gap: 8px; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap;
+}
+.promise-badge {
+  background: rgba(46, 204, 113, 0.06);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  color: var(--green-btn);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.05em;
+  padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+}
+
+/* ── Layout Elements ── */
+.section-wrap { max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+.section-label { font-size: 10px; color: var(--orange-main); letter-spacing: 0.15em; margin-bottom: 0.5rem; }
+.section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.6rem; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+
+.steps-grid { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.5rem; }
+.step-card {
+  background: var(--bg-sidebar); border: 1px solid var(--border-ui);
+  border-radius: 6px; padding: 1.5rem;
+  position: relative; overflow: hidden;
+}
+.step-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--orange-main);
+}
+.step-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 0.75rem; color: #fff; }
+.step-card-title span { color: var(--orange-main); }
+.step-list { list-style: none; color: var(--text-muted); }
+.step-list li { margin-bottom: 0.5rem; position: relative; padding-left: 18px; }
+.step-list li::before { content: '➔'; position: absolute; left: 0; color: var(--orange-main); font-size: 10px; }
+
+/* ── Screenshots met Zoom Effect ── */
+.img-container {
+  position: relative; margin-top: 15px; cursor: pointer; overflow: hidden; border-radius: 6px;
+}
+.ui-screenshot {
+  width: 100%; max-height: 250px; object-fit: contain;
+  background: #05070a; border: 1px solid var(--border-ui);
+  border-radius: 6px; display: block; transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.img-container:hover .ui-screenshot {
+  transform: scale(1.01); border-color: var(--orange-main);
+}
+.img-hint {
+  position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.75);
+  color: var(--orange-main); font-size: 10px; padding: 3px 8px; border-radius: 4px;
+  border: 1px solid rgba(245,166,35,0.3); pointer-events: none;
+}
+
+/* ── Lightbox / Overlay (Het naar voren springen) ── */
+.lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(5, 7, 10, 0.95);
+  z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s ease; padding: 20px;
+}
+.lightbox-overlay.active { opacity: 1; pointer-events: all; }
+.lightbox-img {
+  max-width: 95%; max-height: 75vh; border: 2px solid var(--border-ui); border-radius: 6px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.95); transition: transform 0.25s ease;
+}
+.lightbox-overlay.active .lightbox-img { transform: scale(1); }
+
+/* Ingebouwde Tooltip onder de grote afbeelding */
+.lightbox-tooltip {
+  margin-top: 15px; background: var(--bg-sidebar); border: 1px solid var(--orange-main);
+  padding: 12px 20px; border-radius: 6px; max-width: 600px; text-align: center;
+  color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.lightbox-close {
+  position: absolute; top: 15px; right: 15px; background: var(--red-border); color: #fff;
+  border: none; padding: 6px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+
+pre {
+  background: var(--bg-code); border: 1px solid var(--border-ui);
+  border-radius: 4px; padding: 1rem; margin-top: 0.75rem;
+  overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #a6e3a1;
+}
+
+.rules-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 11px; }
+.rules-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-ui); color: var(--orange-main); font-size: 9px; letter-spacing: 0.1em; }
+.rules-table td { padding: 10px 10px; border-bottom: 1px solid var(--border-ui); color: var(--text-muted); vertical-align: top; }
+
+footer {
+  border-top: 1px solid var(--border-ui); padding: 2rem 1.5rem;
+  display: flex; flex-direction: column; gap: 1.5rem; align-items: center;
+  background: var(--bg-sidebar);
+}
+
+/* ── Hero logo verbeterd ── */
+.hero-logo-wrap {
+  position: relative; margin-bottom: 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.hero-logo {
+  width: min(420px, 80vw); height: auto;
+  position: relative; z-index: 2;
+  filter: drop-shadow(0 0 40px rgba(245,166,35,0.25))
+          drop-shadow(0 0 80px rgba(245,166,35,0.10));
+  animation: hero-float 4s ease-in-out infinite;
+}
+.hero-logo-glow {
+  position: absolute; width: 300px; height: 300px; z-index: 1;
+  background: radial-gradient(circle, rgba(245,166,35,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: hero-pulse 4s ease-in-out infinite;
+}
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+@keyframes hero-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+/* Hero snelnavigatie */
+.hero-nav {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-top: 1.5rem;
+}
+.hero-nav-btn {
+  font-size: 10px; letter-spacing: 0.08em; text-decoration: none;
+  padding: 6px 14px; border-radius: 4px;
+  border: 1px solid rgba(245,166,35,0.25);
+  background: rgba(245,166,35,0.06);
+  color: var(--orange-main);
+  transition: all 0.2s ease;
+}
+.hero-nav-btn:hover {
+  background: rgba(245,166,35,0.15);
+  border-color: var(--orange-main);
+}
+
+/* Footer verbetering */
+footer img.footer-logo {
+  height: 40px; opacity: 0.7;
+  filter: drop-shadow(0 0 8px rgba(245,166,35,0.3));
+}
+
+</style>
+</head>
+<body>
+
+<!-- ── LIGHTBOX OVERLAY COMPONENT ── -->
+<div id="lightbox" class="lightbox-overlay" onclick="closeLightbox()">
+  <button class="lightbox-close">Sluiten (ESC)</button>
+  <img id="lightbox-img" class="lightbox-img" src="" alt="Zoomed view">
+  <div id="lightbox-tooltip" class="lightbox-tooltip"></div>
+</div>
+
+<!-- ── HERO ── -->
+<section class="hero" id="overzicht">
+  <img src="images/lCURSEBOT.png" alt="CurseBot Logo" style="width: 280px; height: auto; margin-bottom: 0.5rem; opacity: 0.95;">
+  <h1>CurseBot v2.2.0</h1>
+  <p class="hero-sub">Gids voor configuratie en beheer van de geautomatiseerde add-on monitor.</p>
+  
+  <div class="promise-container">
+    <div class="promise-badge">🛡️ No Paywalls</div>
+    <div class="promise-badge">❌ No Patreon</div>
+    <div class="promise-badge">💎 Every Feature Included</div>
+  </div>
+</section>
+
+<!-- ── SCHERM 1: DASHBOARD ── -->
+<section id="environment" style="background:var(--bg-sidebar); border-top:1px solid var(--border-ui); border-bottom:1px solid var(--border-ui);">
+<div class="section-wrap">
+  <p class="section-label">01 / HOOFD INTERFACE</p>
+  <h2 class="section-title">Het Live Dashboard</h2>
+  <p style="color:var(--text-muted);">Het centrale commandocentrumn van CurseBot. Hier zie je in één oogopslag de actieve runtime status, verbonden systemen en de realtime logs van de database-checks.</p>
+
+  <div class="img-container" onclick="openLightbox('images/DASHBOARD.png', '📊 DASHBOARD: Toont actieve uptime counters, aantal bewaakte addons, intervaltimers en het real-time Live Log-venster waarin API errors of ontdekte updates direct verschijnen.')">
+    <img src="images/DASHBOARD.png" alt="CurseBot Dashboard" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+
+  <h3 class="step-card-title" style="margin-top:2rem;">De Besturingsknoppen (Dashboard)</h3>
+  <ul class="step-list">
+    <li><strong>🟥 Stop:</strong> Beëindigt per direct de actieve controle-loop op de achtergrond.</li>
+    <li><strong>🟨 Cache:</strong> Leegt de lokale database-cache om een schone check te forceren.</li>
+    <li><strong>🟦 Check:</strong> Negeert de interval en start direct een handmatige controle.</li>
+    <li><strong>🟧 Update:</strong> Haalt direct de nieuwste add-on releases handmatig binnen.</li>
+  </ul>
+</div>
+</section>
+
+<!-- ── SCHERM 2: CONFIGURATIE EN INITIALISATIE ── -->
+<section id="config-initial" style="border-bottom:1px solid var(--border-ui);">
+<div class="section-wrap">
+  <p class="section-label">02 / VEILIGHEID & FIRST RUN</p>
+  <h2 class="section-title">Eerste Configuratie (API & Tokens)</h2>
+  <p style="color:var(--text-muted);">Bij de allereerste opstart vraagt CurseBot om je unieke tokens. Deze gegevens worden veilig en versleuteld weggeschreven via de ingebouwde Windows Credential Manager.</p>
+
+  <div class="img-container" onclick="openLightbox('images/API SETTINGS.png', '🔑 EERSTE CONFIGURATIE: Voer hier je Discord Bot Token, CurseForge API sleutel en het unieke Discord Channel ID in. Wachtwoorden worden nooit als platte tekst bewaard.')">
+    <img src="images/API SETTINGS.png" alt="Eerste Configuratie" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+</div>
+</section>
+
+<!-- ── SCHERM 3: ADDON ZOEKEN & FILTERS ── -->
+<section id="zoeken" style="background:var(--bg-sidebar); border-bottom:1px solid var(--border-ui);">
+<div class="section-wrap">
+  <p class="section-label">03 / DATABASE CONSTRUCTIE</p>
+  <h2 class="section-title">Addon Zoeken & Filters</h2>
+  <p style="color:var(--text-muted);">De flexibele zoekmodule om handmatig nieuwe addons aan te boren of specifieke CurseForge Project ID\'s direct op te vragen:</p>
+
+  <div class="img-container" onclick="openLightbox('images/SEARCH.png', '🔍 ADDON ZOEKEN: Zoek direct in de CurseForge database op naam of ID. Gebruik de filters onderin om Alpha-builds te negeren of uitsluitend stabiele versies te targeten.')">
+    <img src="images/SEARCH.png" alt="Addon Zoeken" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+
+  <div class="steps-grid" style="margin-top: 1.5rem;">
+    <div class="step-card">
+      <div class="step-card-title"><span>Release Filters</span></div>
+      <ul class="step-list">
+        <li><code>Alles</code>: Stuurt notificaties voor alle releases (Alpha, Beta, Stable).</li>
+        <li><code>Stable</code>: Filtert streng en reageert enkel op officiële productieversies.</li>
+        <li><code>Stable+Beta</code>: Uitstekend voor dagelijks gebruik, negeert onstabiele Alpha\'s.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ── SCHERM 4: MIJN ADDONS MONITOR ── -->
+<section id="addons" style="border-bottom:1px solid var(--border-ui);">
+<div class="section-wrap">
+  <p class="section-label">04 / MONITOR PROTOCOL</p>
+  <h2 class="section-title">Mijn Addons (Auteursbeheer)</h2>
+  <p style="color:var(--text-muted);">Dit scherm scant automatisch alle projecten gekoppeld aan de ingestelde auteur (standaard: <code>dieouwe</code>). Vanuit hier beheer je direct wat actief gecontroleerd moet worden.</p>
+  
+  <div class="img-container" onclick="openLightbox('images/MY ADDONS.png', '⚡ MIJN ADDONS: Overzicht van jouw eigen projecten (zoals WowTracker en ProfessionBuddy). Klik op de groene \'+ Watch\' knop om ze live te koppelen aan je Discord webhook-notificaties.')">
+    <img src="images/MY ADDONS.png" alt="Mijn Addons" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+</div>
+</section>
+
+<!-- ── SCHERM 5: WATCHLIST EN STATISTIEKEN ── -->
+<section id="stats-settings" style="background:var(--bg-sidebar); border-bottom:1px solid var(--border-ui);">
+<div class="section-wrap">
+  <p class="section-label">05 / DATA & INSTELLINGEN</p>
+  <h2 class="section-title">Statistieken & Systeeminstellingen</h2>
+  <p style="color:var(--text-muted);">Houd de download-groei van je addons nauwgezet bij en configureer globale app-parameters zoals de poll-intervals.</p>
+
+  <div class="img-container" style="margin-bottom: 1.5rem;" onclick="openLightbox('images/STATISTICS.png', '📈 DOWNLOAD STATISTIEKEN: Toont grafisch en in absolute getallen de totale downloads en de groei ten opzichte van de vorige meting om te zien hoe populair je addons zijn.')">
+    <img src="images/STATISTICS.png" alt="Download Statistieken" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+
+  <div class="img-container" onclick="openLightbox('images/SETTINGS.png', '⚙️ INSTELLINGEN: Pas hier achteraf je auteur-slug, poll-intervals (bijv. elke 10 minuten) aan of bewerk/wis je beveiligde API-sleutels met één druk op de knop.')">
+    <img src="images/SETTINGS.png" alt="Systeem Instellingen" class="ui-screenshot">
+    <div class="img-hint">🔍 Klik voor grote weergave</div>
+  </div>
+</div>
+</section>
+
+<!-- ── TROUBLESHOOTING ── -->
+<section id="trouble">
+<div class="section-wrap">
+  <p class="section-label">DIAGNOSTIEK</p>
+  <h2 class="section-title">Foutafhandeling & Status</h2>
+
+  <table class="rules-table">
+    <thead>
+      <tr><th>STATUSCODE / SYMPTOOM</th><th>OORZAAK & INTERVENTIE</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:#fff;"><strong>[ERROR] 'int' object...</strong></td><td>Vangt onverwachte CurseForge API response datatypes op. De bot herstelt hier automatisch van bij de volgende intervalcheck.</td></tr>
+      <tr><td style="color:#fff;"><strong>Zoeken geeft 0 resultaten</strong></td><td>Controleer je netwerkverbinding en verifieer of je API Key niet verlopen is in het instellingenscherm.</td></tr>
+      <tr><td style="color:#fff;"><strong>[CF] 403 — X-Cache: Error from cloudfront</strong></td><td>Tijdelijke Cloudfront WAF IP-blokkade. NIET een API key probleem. Wacht 1–24 uur en herstart de bot daarna. Niet herhaaldelijk herstarten — dat verlengt de blokkade.</td></tr>
+      <tr><td style="color:#fff;"><strong>Bot stopt na X uur vanzelf</strong></td><td>Controleer of de monitor_loop een @loop.error handler heeft (v2.1.0+). Zonder deze handler stopt de loop definitief bij de eerste onverwachte API fout.</td></tr>
+      <tr><td style="color:#fff;"><strong>Twee vensters openen bij start</strong></td><td>Zorg dat start_cursebot.bat alleen <code style="color:var(--orange-main)">python launch.py</code> aanroept. launch.py v1.2.0 start bot én UI in één proces.</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- ── FOOTER EN SLUITEN ── -->
+<footer>
+  <div style="display: flex; justify-content: space-between; width: 100%; color: var(--text-dark); font-size: 11px;">
+    <span>CurseBot v2.2.0 — Slayer Alliance Edition</span>
+    <span>discord.gg/y8Pu5qsEbQ · dieouwe.nl</span>
+  </div>
+  
+  <button onclick="sluitVenster()" style="
+    background: rgba(231, 76, 60, 0.08);
+    border: 1px solid var(--red-border);
+    color: var(--red-ui);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 10px 24px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    letter-spacing: 0.05em;
+    width: 100%;
+  " onmouseover="this.style.background='var(--red-border)'; this.style.color='#fff';" 
+     onmouseout="this.style.background='rgba(231, 76, 60, 0.08)'; this.style.color='var(--red-ui)';">
+    ❌ SLUIT DOCUMENTATIE
+  </button>
+</footer>
+
+<!-- ── LIGHTBOX JAVASCRIPT ENGINE ── -->
+<script>
+function openLightbox(imgSrc, textTooltip) {
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  const lightboxTooltip = document.getElementById('lightbox-tooltip');
+  
+  lightboxImg.src = imgSrc;
+  lightboxTooltip.innerText = textTooltip;
+  lightbox.classList.add('active');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('active');
+}
+
+// Sluit ook netjes af als je op de ESC-toets drukt
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeLightbox();
+  }
+});
+
+function sluitVenster() {
+  window.close();
+}
+</script>
+</body>
+</html>

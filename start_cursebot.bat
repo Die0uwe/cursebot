@@ -17,12 +17,11 @@ if %errorlevel% == 42 (
     goto loop
 )
 
-:: Start de native UI in een apart venster
-start "CurseBot UI" python -m ui.app
+:: Start de native UI + bot samen via launch.py
+:: launch.py start bot als daemon thread, UI in main thread
+:: Zo is er maar EEN venster (de UI), bot draait op de achtergrond
+python launch.py
 
-:: Start de bot (met Flask dashboard op achtergrond)
-python -m bot.main
-
-echo [CurseBot] Bot gestopt. Herstart over 5 seconden...
+echo [CurseBot] Gestopt. Herstart over 5 seconden...
 timeout /t 5 /nobreak >nul
 goto loop

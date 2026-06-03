@@ -2,8 +2,10 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — cogs/curseforge.py  v2.0.0
+CurseBot — cogs/curseforge.py  v2.2.0
+
 Monitor cog met multi-channel support, download stats, watchlist tracking.
+FIX: Oplossing voor 'int' object is not callable / NoneType crash bij nieuwe watchlist items.
 """
 import discord
 from discord.ext import commands, tasks
@@ -47,7 +49,6 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
     # ── Monitor loop ───────────────────────────────────────────────────────────
     @tasks.loop(minutes=10)
     async def monitor_loop(self):
-        # Check force_check flag vanuit dashboard/UI
         if STATS.force_check:
             STATS.force_check = False
             log.info("[MONITOR] Handmatige check getriggerd")
@@ -65,6 +66,11 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
             log.error(f"[MONITOR] Fout: {exc}", exc_info=True)
             STATS.add_log(f"[ERROR] Monitor: {exc}")
 
+    @monitor_loop.error
+    async def monitor_loop_error(self, error: Exception):
+        log.error(f"[MONITOR] Onverwachte fout in loop: {error}", exc_info=True)
+        STATS.add_log(f"[ERROR] Monitor loop fout: {error}")
+
     @monitor_loop.before_loop
     async def before_monitor(self):
         await self.bot.wait_until_ready()
@@ -74,21 +80,21 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
 
     # ── Check logica ───────────────────────────────────────────────────────────
     async def _run_check(self):
-        # Combineer eigen projecten + watchlist items
         all_addon_ids = set(p.id for p in self._known_projects)
 
-        # Watchlist items ophalen
         wl_items    = self.cache.watchlist_all()
         wl_by_addon = {}  # addon_id -> list[dict]
+        
+        # Update globale STATS zodat het dashboard het juiste aantal toont
+        STATS.watchlist_count = len(wl_items)
+
         for item in wl_items:
             aid = item["addon_id"]
             wl_by_addon.setdefault(aid, []).append(item)
             all_addon_ids.add(aid)
 
-        # Wijs guilds toe aan eigen projecten
         for p in self._known_projects:
             if p.id not in wl_by_addon:
-                # Voeg toe als default guild
                 wl_by_addon[p.id] = [{
                     "guild_id":       str(self.bot.settings.release_channel_id),
                     "addon_id":       p.id,
@@ -104,8 +110,7 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
                 if not release:
                     continue
 
-                # Download stats opslaan
-                self.cache.stats_record(addon_id, 0)  # placeholder
+                self.cache.stats_record(addon_id, 0)
                 meta = self.cache.addon_meta_get(addon_id)
 
                 cache_key = f"cf:{addon_id}:latest_file"
@@ -114,21 +119,24 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
                 if cached and int(cached) == release.file_id:
                     continue
 
-                # Nieuwe release gevonden
-                addon_name = meta["name"] if meta else f"Addon #{addon_id}"
+                # FIX: Veilig de naam bepalen zonder crash op missende metadata
+                addon_name = "Onbekende Addon"
+                if meta and isinstance(meta, dict) and "name" in meta:
+                    addon_name = meta["name"]
+                elif len(wl_by_addon.get(addon_id, [])) > 0:
+                    addon_name = wl_by_addon[addon_id][0].get("addon_name", f"Addon #{addon_id}")
+
                 log.info(f"[MONITOR] 🎉 {addon_name} — {release.display_name}")
                 STATS.add_log(f"[RELEASE] {addon_name} — {release.display_name}")
                 STATS.releases_detected += 1
                 self.cache.set(cache_key, str(release.file_id))
 
-                # AI samenvatting
                 ai_summary = None
                 if self.claude and release.changelog:
                     ai_summary = await self.claude.summarize_changelog(
                         addon_name, release.changelog
                     )
 
-                # Stuur naar de juiste kanalen per guild
                 await self._notify_guilds(
                     addon_id=addon_id,
                     addon_name=addon_name,
@@ -149,13 +157,7 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
         wl_entries: list[dict],
         ai_summary: str | None,
     ):
-        """
-        Stuur release embed naar de juiste kanalen.
-        Multi-channel: per guild kijken welk kanaal het juiste release type ontvangt.
-        """
         notified_channels = set()
-
-        # Haal addon info op voor embed
         meta = self.cache.addon_meta_get(addon_id)
         own_project = next(
             (p for p in self._known_projects if p.id == addon_id), None
@@ -165,12 +167,9 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
             guild_id        = entry.get("guild_id", "0")
             release_filter  = entry.get("release_filter", "all")
 
-            # Controleer release filter
             if not release.matches_filter(release_filter):
                 continue
 
-            # Bepaal doelkanaal via channel_config
-            # Probeer specifiek type → fallback naar 'all' → fallback naar settings
             target_ch_id = (
                 self.cache.channel_get(guild_id, release.release_type.name.lower())
                 or self.cache.channel_get(guild_id, "all")
@@ -178,27 +177,27 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
             )
 
             if target_ch_id in notified_channels:
-                continue  # Zelfde kanaal niet twee keer
+                continue
 
             channel = self.bot.get_channel(int(target_ch_id))
             if not channel:
                 continue
 
-            # Bouw embed
             if own_project:
                 embed = build_release_embed(own_project, release, ai_summary)
             else:
-                # Watchlist addon — maak een AddonProject stub
+                # FIX: Veilig controleren of meta een geldige dict is voor de stub builder
+                has_meta = meta and isinstance(meta, dict)
                 from bot.models.release import AddonProject as AP
                 stub = AP(
                     id=addon_id,
-                    name=meta["name"] if meta else addon_name,
-                    slug=meta.get("slug","") if meta else "",
-                    summary=meta.get("summary","") if meta else "",
-                    url=meta.get("url","") if meta else "",
-                    logo_url=meta.get("logo_url") if meta else None,
-                    downloads=meta.get("downloads",0) if meta else 0,
-                    author_name=meta.get("author_name","") if meta else "",
+                    name=meta["name"] if has_meta else addon_name,
+                    slug=meta.get("slug", "") if has_meta else "",
+                    summary=meta.get("summary", "") if has_meta else "",
+                    url=meta.get("url", "") if has_meta else f"https://www.curseforge.com/wow/addons/{addon_id}",
+                    logo_url=meta.get("logo_url") if has_meta else None,
+                    downloads=meta.get("downloads", 0) if has_meta else 0,
+                    author_name=meta.get("author_name", "Onbekend") if has_meta else "Onbekend",
                 )
                 embed = build_release_embed(stub, release, ai_summary)
 
@@ -225,13 +224,9 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
                 for p in projects
             ]
 
-            log.info(
-                f"[DISCOVER] {len(projects)} projecten voor "
-                f"'{self.bot.settings.cf_author_slug}'"
-            )
+            log.info(f"[DISCOVER] {len(projects)} projecten voor '{self.bot.settings.cf_author_slug}'")
             STATS.add_log(f"[DISCOVER] {len(projects)} projecten geladen")
 
-            # Cache metadata + initialiseer file tracking
             for p in projects:
                 self.cache.addon_meta_set(p.id, {
                     "name": p.name, "slug": p.slug,
@@ -239,7 +234,6 @@ class CurseForgeCog(commands.Cog, name="CurseForge Monitor"):
                     "url": p.url, "logo_url": p.logo_url,
                     "downloads": p.downloads,
                 })
-                # Download stats bijhouden
                 self.cache.stats_record(p.id, p.downloads)
 
                 release   = await self.cf.get_latest_file(p.id)
@@ -271,7 +265,7 @@ async def setup(bot):
     await bot.add_cog(CurseForgeCog(bot))
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: curseforge.py │ v2.0.0 │ 2026-06-02                        ║
-# ║  Multi-channel · download stats · watchlist tracking               ║
-# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
+# ║  File: curseforge.py │ v2.2.0 │ 2026-06-03                           ║
+# ║  Fix: Geen crash meer op NoneType/missende watchlist metadata       ║
+# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ       ║
 # ╚══════════════════════════════════════════════════════════════════════╝

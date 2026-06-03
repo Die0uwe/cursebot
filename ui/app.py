@@ -110,8 +110,11 @@ def cf_search_web(query: str) -> list[dict]:
 
 # ── Hoofd applicatie ───────────────────────────────────────────────────────────
 class CurseBotApp(ctk.CTk):
-    def __init__(self):
+    def __init__(self, bot_manager=None):
         super().__init__()
+
+        # BotManager — optioneel (None als UI standalone draait)
+        self._bot_manager = bot_manager
 
         # Window setup
         self.title("CurseBot — Slayer Alliance Edition")
@@ -147,6 +150,9 @@ class CurseBotApp(ctk.CTk):
         # Start poll
         self._start_poll()
         self.after(500, self._refresh)
+
+        # Setup wizard — toon als verplichte keys ontbreken
+        self.after(300, self._check_setup)
 
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
@@ -209,6 +215,28 @@ class CurseBotApp(ctk.CTk):
             command=self._do_check
         )
         self.hdr_check_btn.pack(side="right", padx=(0, 6), pady=10)
+
+        self.hdr_stop_btn = ctk.CTkButton(
+            self.hdr_frame, text="⏹ Stop",
+            font=FONT_SMALL, width=66, height=28,
+            fg_color=C_BG2, hover_color=C_BG3,
+            border_color=C_RED, border_width=1,
+            text_color=C_RED,
+            command=self._do_stop
+        )
+        self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=10)
+
+        # Start knop — zichtbaar als bot offline is
+        self.hdr_start_btn = ctk.CTkButton(
+            self.hdr_frame, text="▶ Start",
+            font=FONT_SMALL, width=66, height=28,
+            fg_color=C_BG2, hover_color=C_BG3,
+            border_color=C_GREEN, border_width=1,
+            text_color=C_GREEN,
+            command=self._do_start
+        )
+        self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=10)
+        self.hdr_start_btn.pack_forget()  # verborgen bij start (bot draait)
 
         self.hdr_reset_btn = ctk.CTkButton(
             self.hdr_frame, text="✕ Cache",
@@ -480,6 +508,189 @@ class CurseBotApp(ctk.CTk):
                 border_color=C_GREEN, border_width=1, text_color=C_GREEN,
                 command=lambda a=addon: self._add_to_watchlist(a)
             ).pack(side="right", padx=(0, 4), pady=8)
+
+    # ── TAB: CF BROWSER ───────────────────────────────────────────────────────
+    def _build_tab_browser(self):
+        """Ingebouwde CurseForge browser — zoek en bekijk addons, voeg toe aan watchlist."""
+        f = self.tab_frames["browser"]
+
+        hdr = ctk.CTkFrame(f, fg_color="transparent")
+        hdr.pack(fill="x", padx=16, pady=(16, 8))
+        ctk.CTkLabel(hdr, text="CF Browser",
+                     font=FONT_TITLE, text_color=C_TEXT).pack(side="left")
+        ctk.CTkLabel(hdr, text="Zoek addons en voeg toe aan watchlist",
+                     font=FONT_SMALL, text_color=C_MUTED).pack(side="left", padx=(12,0), pady=(4,0))
+
+        # Zoekbalk
+        search_row = ctk.CTkFrame(f, fg_color=C_BG2,
+                                   border_width=1, border_color=C_BORDER, corner_radius=8)
+        search_row.pack(fill="x", padx=16, pady=(0, 8))
+
+        self.browser_entry = ctk.CTkEntry(
+            search_row, placeholder_text="Zoek op naam, auteur of keyword...",
+            font=FONT_BODY, fg_color="transparent", border_width=0,
+            text_color=C_TEXT, placeholder_text_color=C_MUTED, height=40
+        )
+        self.browser_entry.pack(side="left", fill="x", expand=True, padx=(12, 0))
+        self.browser_entry.bind("<Return>", lambda e: self._browser_search())
+
+        self.browser_btn = ctk.CTkButton(
+            search_row, text="Zoeken",
+            font=FONT_SMALL, width=90, height=32,
+            fg_color=C_GOLD, hover_color=C_GOLD_DIM,
+            text_color="#000000", corner_radius=6,
+            command=self._browser_search
+        )
+        self.browser_btn.pack(side="right", padx=8, pady=4)
+
+        # Snelknoppen
+        quick = ctk.CTkFrame(f, fg_color="transparent")
+        quick.pack(fill="x", padx=16, pady=(0, 10))
+        ctk.CTkLabel(quick, text="Snel:", font=FONT_SMALL, text_color=C_MUTED).pack(side="left")
+        for term in ["dieouwe", "delvetracker", "weakauras", "details", "elvui"]:
+            ctk.CTkButton(
+                quick, text=term, font=("Segoe UI", 10), height=24, width=82,
+                fg_color=C_BG3, hover_color=C_BG2, text_color=C_MUTED,
+                border_width=1, border_color=C_BORDER, corner_radius=4,
+                command=lambda t=term: self._browser_quick(t)
+            ).pack(side="left", padx=(5, 0))
+
+        self.browser_status = ctk.CTkLabel(
+            f, text="Voer een zoekterm in om te beginnen.",
+            font=FONT_SMALL, text_color=C_MUTED
+        )
+        self.browser_status.pack(anchor="w", padx=16, pady=(0, 6))
+
+        self.browser_results = ctk.CTkScrollableFrame(
+            f, fg_color="transparent", corner_radius=0,
+            scrollbar_button_color=C_BG3, height=420
+        )
+        self.browser_results.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+
+    def _load_browser_tab(self):
+        """Laad browser tab — vul eigen addons als standaard."""
+        if not self.browser_entry.get():
+            self.browser_entry.insert(0, "dieouwe")
+            self._browser_search()
+
+    def _browser_quick(self, term: str):
+        self.browser_entry.delete(0, "end")
+        self.browser_entry.insert(0, term)
+        self._browser_search()
+
+    def _browser_search(self):
+        query = self.browser_entry.get().strip()
+        if not query:
+            return
+        self.browser_status.configure(text=f"Zoeken naar '{query}'...", text_color=C_MUTED)
+        self.browser_btn.configure(state="disabled", text="...")
+        for w in self.browser_results.winfo_children():
+            w.destroy()
+
+        def task():
+            results = []
+            try:
+                import urllib.parse
+                q_enc = urllib.parse.quote(query)
+                data = api_get(f"/api/cf/search?q={q_enc}", timeout=10)
+                if data and data.get("results"):
+                    results = data["results"]
+                else:
+                    stats = api_get("/api/stats", timeout=5)
+                    if stats:
+                        q = query.lower()
+                        results = [
+                            p for p in stats.get("projects", [])
+                            if q in p.get("name","").lower() or q in p.get("slug","").lower()
+                        ]
+            except Exception:
+                pass
+            self.after(0, lambda: self._browser_show(results, query))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def _browser_show(self, results: list, query: str):
+        self.browser_btn.configure(state="normal", text="Zoeken")
+        for w in self.browser_results.winfo_children():
+            w.destroy()
+
+        if not results:
+            self.browser_status.configure(
+                text=f"Geen resultaten voor '{query}'. Bot moet online zijn voor CF zoekopdrachten.",
+                text_color=C_MUTED
+            )
+            ctk.CTkButton(
+                self.browser_results,
+                text=f"Zoek '{query}' op CurseForge.com ↗",
+                font=FONT_SMALL, height=32, width=300,
+                fg_color="transparent", hover_color=C_BG2,
+                text_color=C_BLUE, border_width=1, border_color=C_BLUE,
+                command=lambda: webbrowser.open(
+                    f"https://www.curseforge.com/wow/search?page=1&search={query}"
+                )
+            ).pack(anchor="w", pady=8)
+            return
+
+        self.browser_status.configure(
+            text=f"{len(results)} resultaten voor '{query}'", text_color=C_GREEN
+        )
+        for addon in results:
+            self._browser_row(addon)
+
+    def _browser_row(self, addon: dict):
+        row = ctk.CTkFrame(self.browser_results, fg_color=C_BG2,
+                            corner_radius=8, border_width=1, border_color=C_BORDER)
+        row.pack(fill="x", pady=3)
+
+        inner = ctk.CTkFrame(row, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=8)
+
+        # Info
+        info = ctk.CTkFrame(inner, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(info, text=addon.get("name", "Onbekend"),
+                     font=FONT_BODY, text_color=C_TEXT, anchor="w").pack(anchor="w")
+
+        meta = []
+        if addon.get("author_name"): meta.append(f"door {addon['author_name']}")
+        dl = addon.get("downloads", 0)
+        if dl: meta.append(f"{dl:,} dl")
+        if meta:
+            ctk.CTkLabel(info, text=" · ".join(meta),
+                         font=FONT_SMALL, text_color=C_MUTED, anchor="w").pack(anchor="w")
+
+        summary = addon.get("summary", "")
+        if summary:
+            ctk.CTkLabel(
+                info,
+                text=summary[:110] + "..." if len(summary) > 110 else summary,
+                font=("Segoe UI", 10), text_color=C_MUTED,
+                anchor="w", wraplength=460, justify="left"
+            ).pack(anchor="w", pady=(2, 0))
+
+        # Knoppen
+        btns = ctk.CTkFrame(inner, fg_color="transparent")
+        btns.pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            btns, text="+ Watch",
+            font=FONT_SMALL, width=78, height=28,
+            fg_color=C_GOLD, hover_color=C_GOLD_DIM,
+            text_color="#000000", corner_radius=6,
+            command=lambda a=addon: (self._add_to_watchlist(a),
+                                     self._toast(f"✓ {a.get('name','?')} toegevoegd"))
+        ).pack(pady=(0, 4))
+
+        if addon.get("url"):
+            ctk.CTkButton(
+                btns, text="CF ↗",
+                font=FONT_SMALL, width=78, height=28,
+                fg_color="transparent", hover_color=C_BG3,
+                text_color=C_BLUE, border_width=1, border_color=C_BLUE,
+                corner_radius=6,
+                command=lambda u=addon["url"]: webbrowser.open(u)
+            ).pack()
 
     # ── TAB: ZOEKEN (wid: search_*) ───────────────────────────────────────────
     def _build_tab_search(self):
@@ -910,6 +1121,73 @@ class CurseBotApp(ctk.CTk):
         )
         self.cfg_status_lbl.pack(anchor="w", padx=16)
 
+        # ── Beveiliging sectie ────────────────────────────────────────────────
+        ctk.CTkLabel(
+            f, text="Beveiliging",
+            font=FONT_TITLE, text_color=C_TEXT
+        ).pack(anchor="w", padx=16, pady=(20, 8))
+
+        sec_frame = ctk.CTkFrame(f, fg_color=C_BG2, corner_radius=8,
+                                  border_width=1, border_color=C_BORDER)
+        sec_frame.pack(fill="x", padx=16, pady=(0, 8))
+
+        # Keyring status
+        sec_status_row = ctk.CTkFrame(sec_frame, fg_color="transparent")
+        sec_status_row.pack(fill="x", padx=12, pady=10)
+
+        try:
+            import keyring as _kr
+            _kr.get_password("CurseBot-SlayerAlliance", "_test_")
+            sec_txt   = "🔒 Windows Credential Manager actief"
+            sec_color = C_GREEN
+        except ImportError:
+            sec_txt   = "⚠ keyring niet geïnstalleerd — keys in .env (plaintext)"
+            sec_color = C_GOLD
+        except Exception:
+            sec_txt   = "🔒 OS keyring actief"
+            sec_color = C_GREEN
+
+        ctk.CTkLabel(sec_status_row, text=sec_txt,
+                     font=FONT_SMALL, text_color=sec_color,
+                     anchor="w").pack(side="left")
+
+        # Knoppen
+        sec_btn_row = ctk.CTkFrame(sec_frame, fg_color="transparent")
+        sec_btn_row.pack(fill="x", padx=12, pady=(0, 10))
+
+        ctk.CTkButton(
+            sec_btn_row, text="API Keys bijwerken",
+            font=FONT_SMALL, height=30, width=160,
+            fg_color="transparent", hover_color=C_BG3,
+            border_color=C_GOLD, border_width=1, text_color=C_GOLD,
+            command=self._open_setup_wizard
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            sec_btn_row, text="Keys wissen",
+            font=FONT_SMALL, height=30, width=120,
+            fg_color="transparent", hover_color=C_BG3,
+            border_color=C_RED, border_width=1, text_color=C_RED,
+            command=self._clear_keys
+        ).pack(side="left")
+
+    def _clear_keys(self):
+        """Verwijder alle opgeslagen keys na bevestiging."""
+        from tkinter import messagebox
+        if not messagebox.askyesno(
+            "Keys wissen",
+            "Alle opgeslagen API keys verwijderen uit Credential Manager?\n"
+            "De bot kan daarna niet meer starten zonder nieuwe configuratie."
+        ):
+            return
+        try:
+            from bot.services.key_manager import delete_key, ALL_KEYS
+            for k in ALL_KEYS:
+                delete_key(k)
+            self._toast("✓ Alle keys gewist")
+        except Exception as e:
+            self._toast(f"⚠ Fout: {e}")
+
     def _save_settings(self):
         guild = self.cfg_vars.get("cfg_guild")
         if guild:
@@ -1004,6 +1282,77 @@ class CurseBotApp(ctk.CTk):
             self.after(0, lambda: self._toast("↺ CF check getriggerd"))
         threading.Thread(target=task, daemon=True).start()
 
+    def _do_stop(self):
+        if not messagebox.askyesno("Bot stoppen", "Bot stoppen? Hij stopt na de huidige actie."):
+            return
+        def task():
+            # Primair: via BotManager (betrouwbaarder dan API call)
+            stopped = False
+            if self._bot_manager:
+                stopped = self._bot_manager.stop()
+
+            # Fallback: via Flask /api/stop als BotManager niet beschikbaar
+            if not stopped:
+                result = api_post("/api/stop", {})
+                stopped = bool(result and result.get("ok"))
+
+            if stopped:
+                self.after(0, lambda: self._toast("⏹ Bot gestopt"))
+                self.after(0, lambda: self._update_start_stop_buttons(online=False))
+            else:
+                self.after(0, lambda: self._toast("⚠ Bot offline of kon niet stoppen"))
+        threading.Thread(target=task, daemon=True).start()
+
+    def _do_start(self):
+        """Herstart de bot via BotManager zonder de app te sluiten."""
+        if self._bot_manager is None:
+            self._toast("⚠ BotManager niet beschikbaar — herstart de app handmatig")
+            return
+        if self._bot_manager.is_running:
+            self._toast("⚠ Bot draait al")
+            return
+
+        def task():
+            self.after(0, lambda: self._toast("▶ Bot wordt gestart..."))
+            self.after(0, lambda: self._update_start_stop_buttons(starting=True))
+            try:
+                ok = self._bot_manager.start()
+                if ok:
+                    # Wacht kort zodat bot kan initialiseren
+                    import time; time.sleep(3)
+                    self.after(0, lambda: self._toast("✓ Bot gestart"))
+                else:
+                    self.after(0, lambda: self._toast("⚠ Bot kon niet starten"))
+                    self.after(0, lambda: self._update_start_stop_buttons(online=False))
+            except Exception as e:
+                self.after(0, lambda: self._toast(f"✗ Fout: {e}"))
+                self.after(0, lambda: self._update_start_stop_buttons(online=False))
+        threading.Thread(target=task, daemon=True).start()
+
+    def _update_start_stop_buttons(self, online: bool = False, starting: bool = False):
+        """Wissel zichtbaarheid Start/Stop knop op basis van bot-state."""
+        try:
+            if starting:
+                # Tijdens opstarten: beide verborgen, status toont "Starten..."
+                self.hdr_start_btn.pack_forget()
+                self.hdr_stop_btn.pack_forget()
+                self.hdr_status_dot.configure(text_color=C_GOLD)
+                self.hdr_status_lbl.configure(text="Starten...", text_color=C_GOLD)
+            elif online:
+                # Bot online: Stop zichtbaar, Start verborgen
+                self.hdr_start_btn.pack_forget()
+                self.hdr_stop_btn.pack(side="right", padx=(0, 6), pady=10)
+                self.hdr_status_dot.configure(text_color=C_GREEN)
+                self.hdr_status_lbl.configure(text="Online", text_color=C_GREEN)
+            else:
+                # Bot offline: Start zichtbaar, Stop verborgen
+                self.hdr_stop_btn.pack_forget()
+                self.hdr_start_btn.pack(side="right", padx=(0, 6), pady=10)
+                self.hdr_status_dot.configure(text_color=C_RED)
+                self.hdr_status_lbl.configure(text="Offline", text_color=C_RED)
+        except Exception:
+            pass  # Widget al vernietigd bij afsluiten
+
     def _do_update(self):
         def task():
             result = api_post("/api/update", {})
@@ -1042,13 +1391,14 @@ class CurseBotApp(ctk.CTk):
     def _refresh(self):
         d = self._stats
 
-        # Header status
+        # Header status + Start/Stop knop synchronisatie
         if self._bot_online:
-            self.hdr_status_dot.configure(text_color=C_GREEN)
-            self.hdr_status_lbl.configure(text="Online", text_color=C_GREEN)
+            self._update_start_stop_buttons(online=True)
         else:
-            self.hdr_status_dot.configure(text_color=C_RED)
-            self.hdr_status_lbl.configure(text="Bot offline", text_color=C_RED)
+            # Alleen offline tonen als we niet midden in een start zitten
+            status_text = self.hdr_status_lbl.cget("text")
+            if status_text != "Starten...":
+                self._update_start_stop_buttons(online=False)
 
         self.hdr_uptime_lbl.configure(text=d.get("uptime",""))
 
@@ -1103,6 +1453,27 @@ class CurseBotApp(ctk.CTk):
         self._poll_active = False
         self.destroy()
 
+    def _check_setup(self):
+        """Toon setup wizard als verplichte keys ontbreken."""
+        try:
+            from bot.services.key_manager import has_required_keys
+            if not has_required_keys():
+                self._open_setup_wizard()
+        except ImportError:
+            pass  # key_manager niet beschikbaar — geen wizard
+
+    def _open_setup_wizard(self):
+        """Open de setup wizard (modaal)."""
+        try:
+            from ui.setup_wizard import SetupWizard
+            SetupWizard(self, on_complete=self._after_setup)
+        except Exception as e:
+            self._toast(f"⚠ Wizard fout: {e}")
+
+    def _after_setup(self):
+        """Callback na succesvolle setup wizard."""
+        self._toast("✓ Configuratie opgeslagen — bot start op...")
+
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 def main():
@@ -1114,7 +1485,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.0.0 │ 2026-06-02                            ║
+# ║  File: ui/app.py │ v1.4.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

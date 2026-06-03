@@ -1,31 +1,36 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""CurseBot — services/stats.py v2.0.0 — Centrale stats collector."""
+"""CurseBot — services/stats.py v2.1.0 — Centrale stats collector.
+
+CHANGES v2.1.0:
+  - stop_requested flag toegevoegd (voor dashboard Stop knop)
+"""
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Optional
 
 
 @dataclass
 class BotStats:
-    start_time:          float        = field(default_factory=time.time)
-    guilds:              int          = 0
-    projects_tracked:    int          = 0
-    releases_detected:   int          = 0
+    start_time:          float         = field(default_factory=time.time)
+    guilds:              int           = 0
+    projects_tracked:    int           = 0
+    releases_detected:   int           = 0
     last_check:          Optional[str] = None
     next_check:          Optional[str] = None
-    check_interval_min:  int          = 10
-    last_update_sha:     str          = ""
-    last_update_time:    str          = ""
-    update_available:    bool         = False
-    cf_author:           str          = ""
+    check_interval_min:  int           = 10
+    last_update_sha:     str           = ""
+    last_update_time:    str           = ""
+    update_available:    bool          = False
+    cf_author:           str           = ""
     cf_author_id:        Optional[int] = None
-    log_buffer:          list         = field(default_factory=list)
-    project_list:        list         = field(default_factory=list)
-    force_check:         bool         = False
-    bot_online:          bool         = False
+    log_buffer:          list          = field(default_factory=list)
+    project_list:        list          = field(default_factory=list)
+    force_check:         bool          = False
+    bot_online:          bool          = False
+    stop_requested:      bool          = False   # ← NIEUW: stop via dashboard
 
     def uptime_str(self) -> str:
         secs = int(time.time() - self.start_time)
@@ -49,6 +54,7 @@ class BotStats:
             "cf_author_id":      self.cf_author_id,
             "log_lines":         self.log_buffer[-50:],
             "bot_online":        self.bot_online,
+            "stop_requested":    self.stop_requested,
         }
 
     def add_log(self, line: str):
@@ -61,6 +67,7 @@ class BotStats:
 STATS = BotStats()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: stats.py │ v2.0.0 │ 2026-06-02                             ║
+# ║  File: stats.py │ v2.1.0 │ 2026-06-03                             ║
+# ║  Add: stop_requested flag voor dashboard Stop knop                 ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
