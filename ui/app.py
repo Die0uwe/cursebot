@@ -56,11 +56,11 @@ C_TEXT     = "#cdd6f4"
 C_MUTED    = "#6c7086"
 C_DISCORD  = "#5865f2"
 
-FONT_TITLE = ("Segoe UI", 13, "bold")
-FONT_BODY  = ("Segoe UI", 12)
-FONT_SMALL = ("Segoe UI", 10)
-FONT_MONO  = ("Consolas", 11)
-FONT_MONO_SM = ("Consolas", 10)
+FONT_TITLE = ("Segoe UI", 14, "bold")
+FONT_BODY  = ("Segoe UI", 13)
+FONT_SMALL = ("Segoe UI", 11)
+FONT_MONO  = ("Consolas", 12)
+FONT_MONO_SM = ("Consolas", 11)
 
 
 # ── API helper ─────────────────────────────────────────────────────────────────
@@ -118,8 +118,8 @@ class CurseBotApp(ctk.CTk):
 
         # Window setup
         self.title("CurseBot — Slayer Alliance Edition")
-        self.geometry("900x620")
-        self.minsize(820, 560)
+        self.geometry("1100x700")
+        self.minsize(960, 620)
         self.configure(fg_color=C_BG)
 
         # State
@@ -166,7 +166,7 @@ class CurseBotApp(ctk.CTk):
         # Logo
         self.hdr_logo_lbl = ctk.CTkLabel(
             self.hdr_frame, text="⚡ CurseBot",
-            font=("Segoe UI", 15, "bold"), text_color=C_GOLD
+            font=("Segoe UI", 16, "bold"), text_color=C_GOLD
         )
         self.hdr_logo_lbl.pack(side="left", padx=(16, 4), pady=12)
 
@@ -262,7 +262,7 @@ class CurseBotApp(ctk.CTk):
     def _build_sidebar(self):
         self.sb_frame = ctk.CTkFrame(
             self.body_frame, fg_color=C_BG3,
-            corner_radius=0, width=170,
+            corner_radius=0, width=200,
             border_width=1, border_color=C_BORDER
         )
         self.sb_frame.grid(row=0, column=0, sticky="nsew")
@@ -293,7 +293,7 @@ class CurseBotApp(ctk.CTk):
                 fg_color=C_GOLD if tab_id == "dashboard" else "transparent",
                 hover_color=C_BG2,
                 text_color="#000000" if tab_id == "dashboard" else C_TEXT,
-                height=34, corner_radius=6,
+                height=38, corner_radius=6,
                 command=lambda t=tab_id: self._switch_tab(t)
             )
             btn.pack(fill="x", padx=8, pady=2)
@@ -403,14 +403,14 @@ class CurseBotApp(ctk.CTk):
 
             ctk.CTkLabel(
                 card, text=label,
-                font=("Segoe UI", 9, "bold"), text_color=C_MUTED
-            ).pack(anchor="w", padx=10, pady=(8, 0))
+                font=("Segoe UI", 11, "bold"), text_color=C_MUTED
+            ).pack(anchor="w", padx=10, pady=(10, 0))
 
             val_lbl = ctk.CTkLabel(
                 card, text=init,
-                font=("Consolas", 17, "bold"), text_color=color
+                font=("Consolas", 20, "bold"), text_color=color
             )
-            val_lbl.pack(anchor="w", padx=10, pady=(2, 10))
+            val_lbl.pack(anchor="w", padx=10, pady=(2, 12))
             self.dash_stat_vals[wid] = val_lbl
 
         # Live log
@@ -425,7 +425,7 @@ class CurseBotApp(ctk.CTk):
         self.dash_log_box = ctk.CTkTextbox(
             self.dash_log_frame, fg_color="#060810",
             font=FONT_MONO_SM, text_color=C_TEXT,
-            height=160, state="disabled",
+            height=220, state="disabled",
             border_width=0, corner_radius=6
         )
         self.dash_log_box.pack(fill="x", padx=8, pady=(0, 8))
@@ -1485,7 +1485,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v1.4.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v1.5.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
