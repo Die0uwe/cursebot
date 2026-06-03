@@ -33,6 +33,19 @@ import os
 import subprocess
 import webbrowser
 from pathlib import Path
+
+# ── i18n — vertalingen ────────────────────────────────────────────────────────
+try:
+    from bot.i18n.translator import t, set_language, get_languages
+    _I18N_AVAILABLE = True
+except ImportError:
+    def t(key: str, **kwargs) -> str:
+        return kwargs.get("_default", key)
+    def set_language(lang: str) -> bool:
+        return False
+    def get_languages() -> dict:
+        return {"nl": "Nederlands 🇳🇱", "en": "English 🇬🇧"}
+    _I18N_AVAILABLE = False
 from datetime import datetime
 
 # ── Configuratie ───────────────────────────────────────────────────────────────
@@ -1853,6 +1866,23 @@ class CurseBotApp(ctk.CTk):
         if event.widget is self and self.state() == "iconic":
             self.after(50, self._hide_to_tray)
 
+    def _detect_system_language(self) -> str:
+        try:
+            import locale
+            code = (locale.getdefaultlocale()[0] or "nl_NL")[:2].lower()
+            if code in get_languages():
+                return code
+        except Exception:
+            pass
+        return "nl"
+
+    def _change_language(self, lang_code: str):
+        if set_language(lang_code):
+            self._current_lang = lang_code
+            self._toast(f"✓ Taal: {get_languages().get(lang_code, lang_code)}")
+        else:
+            self._toast(f"⚠ Taal '{lang_code}' niet beschikbaar")
+
     def _check_setup(self):
         """Toon setup wizard als verplichte keys ontbreken."""
         try:
@@ -1885,7 +1915,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v2.2.0 │ 2026-06-03                            ║
+# ║  File: ui/app.py │ v2.3.0 │ 2026-06-03                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
