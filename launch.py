@@ -2,18 +2,77 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — launch.py  v1.2.0
+CurseBot — launch.py  v1.2.1
 
 Entry point voor PyInstaller .exe build en directe start via start_cursebot.bat.
 Start bot als daemon-thread, UI in de main thread.
 
-WIJZIGINGEN v1.2.0:
-  - BotManager klasse: beheert bot-thread lifecycle (start / stop / restart)
-  - UI kan bot herstarten via BotManager.start() zonder app te sluiten
-  - Gedeeld BotManager-object beschikbaar via bot_manager module-global
-  - Geen dubbele asyncio loops: elke start maakt een verse event loop
+WIJZIGINGEN v1.2.1:
+  - Auto-installer: ontbrekende packages worden automatisch geïnstalleerd
+  - Crash loop fix: ImportError stopt de restart loop, installeert en herstart
+  - customtkinter, Pillow, aiohttp, requests gecontroleerd bij elke start
 """
 import sys
+import subprocess
+import os
+
+# ── AUTO-INSTALLER (voor alle andere imports) ──────────────────────────────────
+# Vereiste packages — worden automatisch geïnstalleerd als ze ontbreken
+REQUIRED_PACKAGES = {
+    "customtkinter": "customtkinter",
+    "PIL":           "Pillow",
+    "aiohttp":       "aiohttp",
+    "requests":      "requests",
+}
+
+def _ensure_packages():
+    missing = []
+    for import_name, pip_name in REQUIRED_PACKAGES.items():
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing.append((import_name, pip_name))
+
+    if not missing:
+        return True  # Alles OK
+
+    print("\n" + "="*50)
+    print("  CurseBot — Ontbrekende packages gevonden")
+    print("="*50)
+    for imp, pip in missing:
+        print(f"  Ontbreekt: {imp}  (pip install {pip})")
+    print()
+
+    all_ok = True
+    for imp, pip in missing:
+        print(f"  [INSTALL] {pip}...", end=" ", flush=True)
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", pip, "--quiet", "--no-warn-script-location"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print("✓")
+        else:
+            print(f"✗ MISLUKT")
+            print(f"    Fout: {result.stderr.strip()[:200]}")
+            all_ok = False
+
+    if all_ok:
+        print("\n  [OK] Alle packages geïnstalleerd — herstart...")
+        print("="*50 + "\n")
+        # Herstart hetzelfde script — packages zijn nu beschikbaar
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    else:
+        print("\n  [FOUT] Installatie mislukt.")
+        print("  Oplossing: open Command Prompt en typ:")
+        print(f"    pip install {' '.join(p for _, p in missing)}")
+        print("="*50)
+        input("\n  Druk ENTER om te sluiten...")
+        sys.exit(1)
+
+_ensure_packages()
+# ── EINDE AUTO-INSTALLER ───────────────────────────────────────────────────────
+
 import threading
 import asyncio
 import time
@@ -24,7 +83,6 @@ log = logging.getLogger(__name__)
 
 # Werkmap corrigeren bij .exe start (PyInstaller frozen mode)
 if getattr(sys, "frozen", False):
-    import os
     os.chdir(Path(sys.executable).parent)
 
 
@@ -51,19 +109,12 @@ class BotManager:
 
     @property
     def is_running(self) -> bool:
-        """Geeft True als de bot-thread actief is en nog leeft."""
         return (
             self._thread is not None
             and self._thread.is_alive()
         )
 
     def start(self) -> bool:
-        """
-        Start de bot in een nieuwe daemon-thread.
-
-        Geeft True terug als succesvol gestart, False als al actief.
-        Thread-safe via lock.
-        """
         with self._lock:
             if self.is_running:
                 log.warning("[BotManager] Bot draait al — start genegeerd")
@@ -80,12 +131,6 @@ class BotManager:
             return True
 
     def stop(self) -> bool:
-        """
-        Stuur een stop-signaal naar de bot via STATS.stop_requested.
-
-        De bot pikt dit op via _stop_watcher in bot/main.py en sluit netjes af.
-        Geeft True terug als signaal verstuurd, False als bot al gestopt is.
-        """
         if not self.is_running:
             log.warning("[BotManager] Bot draait niet — stop genegeerd")
             return False
@@ -102,23 +147,19 @@ class BotManager:
         return True
 
     def wait_until_stopped(self, timeout: float = 10.0):
-        """Blokkeer tot bot gestopt is (max timeout seconden)."""
         if self._thread:
             self._thread.join(timeout=timeout)
 
     def _run(self):
-        """Interne thread-functie. Maakt een verse event loop per start."""
         try:
             from bot.main import main as bot_main
 
-            # Verse event loop — verplicht na thread-herstart
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
                 loop.run_until_complete(bot_main())
             finally:
                 try:
-                    # Sluit alle pending tasks netjes af
                     pending = asyncio.all_tasks(loop)
                     for task in pending:
                         task.cancel()
@@ -136,7 +177,6 @@ class BotManager:
 
 
 # ── Module-global BotManager ───────────────────────────────────────────────────
-# Gedeeld object — zowel launch.py als ui/app.py importeren dit
 bot_manager = BotManager()
 
 
@@ -145,7 +185,7 @@ bot_manager = BotManager()
 def start_ui():
     """
     Start de CustomTkinter UI in de main thread.
-    Toont setup wizard als verplichte keys ontbreken.
+    Packages zijn gegarandeerd aanwezig dankzij _ensure_packages() bovenaan.
     """
     import customtkinter as ctk
 
@@ -166,15 +206,12 @@ def start_ui():
 
 
 if __name__ == "__main__":
-    # Bot starten vóór UI — UI gebruikt bot_manager om status te tonen
     bot_manager.start()
-
-    # UI in main thread (tkinter vereist main thread)
     start_ui()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: launch.py │ v1.2.0 │ 2026-06-03                            ║
-# ║  Add: BotManager klasse — start/stop/restart zonder app sluiten    ║
-# ║  Add: bot_manager module-global gedeeld met ui/app.py              ║
+# ║  File: launch.py │ v1.2.1 │ 2026-06-05                            ║
+# ║  Fix: auto-installer voor ontbrekende packages (customtkinter etc) ║
+# ║  Fix: crash loop gestopt — ImportError nu netjes afgehandeld       ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
