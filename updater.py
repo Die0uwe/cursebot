@@ -1,7 +1,13 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""CurseBot — updater.py  v1.2.0 — auto-updater via GitHub API."""
+"""CurseBot — updater.py  v1.3.0 — auto-updater via GitHub API.
+
+CHANGES v1.3.0:
+  - MANAGED_FILES uitgebreid: help.py, key_manager.py, launch.py,
+    ui/app.py, ui/setup_wizard.py, ui/__init__.py, FIX_PYTHON.bat
+  - Python versie check: waarschuwing bij < 3.10
+"""
 import os, sys, json, shutil, hashlib, urllib.request, urllib.error
 from pathlib import Path
 
@@ -17,6 +23,7 @@ MANAGED_FILES = [
     "bot/cogs/__init__.py",
     "bot/cogs/admin.py",
     "bot/cogs/curseforge.py",
+    "bot/cogs/help.py",
     "bot/cogs/onboarding.py",
     "bot/cogs/watchlist.py",
     "bot/models/__init__.py",
@@ -25,22 +32,36 @@ MANAGED_FILES = [
     "bot/services/cache.py",
     "bot/services/claude_api.py",
     "bot/services/curseforge_api.py",
+    "bot/services/key_manager.py",
     "bot/services/stats.py",
     "bot/utils/__init__.py",
     "bot/utils/embeds.py",
     "bot/utils/logger.py",
     "bot/utils/retry.py",
+    "ui/__init__.py",
+    "ui/app.py",
+    "ui/setup_wizard.py",
     "dashboard.py",
     "dashboard_static/index.html",
+    "launch.py",
     "requirements.txt",
+    "start_cursebot.bat",
+    "FIX_PYTHON.bat",
     "updater.py",
 ]
 
 NEVER_UPDATE = {".env", "cache.db", ".last_commit"}
 
 
+def _check_python():
+    v = sys.version_info
+    if v.major < 3 or (v.major == 3 and v.minor < 10):
+        print(f"[UPDATER] WAARSCHUWING: Python {v.major}.{v.minor} — vereist 3.10+")
+        print("[UPDATER] Draai FIX_PYTHON.bat om dit op te lossen.")
+
+
 def _get(url, timeout=15):
-    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.2"})
+    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.3"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -69,6 +90,7 @@ def check_and_update(base_dir, verbose=True):
         if verbose:
             print(f"[UPDATER] {msg}", flush=True)
 
+    _check_python()
     log("Update check gestart...")
 
     try:
@@ -111,11 +133,14 @@ def check_and_update(base_dir, verbose=True):
         log(f"  ✓ {rel_path}")
         updated.append(rel_path)
 
+    if failed:
+        log(f"  ⚠ {len(failed)} bestand(en) mislukt: {', '.join(failed)}")
+
     sha_file.write_text(remote_sha)
 
     if updated:
         wiped = _wipe_pycache(base_dir)
-        log(f"  🗑 {wiped} __pycache__ map(pen) gewist")
+        log(f"  🗑  {wiped} __pycache__ map(pen) gewist")
         log(f"Update klaar — {len(updated)} bestand(en) bijgewerkt.")
         return True
 
@@ -129,7 +154,8 @@ if __name__ == "__main__":
     sys.exit(42 if changed else 0)
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: updater.py │ v1.2.0 │ 2026-06-02                           ║
-# ║  Fix: onboarding.py + watchlist.py toegevoegd aan MANAGED_FILES    ║
+# ║  File: updater.py │ v1.3.0 │ 2026-06-05                           ║
+# ║  Fix: MANAGED_FILES compleet — ui/, key_manager, FIX_PYTHON.bat   ║
+# ║  Add: Python versie check bij start                                ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝

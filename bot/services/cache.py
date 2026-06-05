@@ -19,7 +19,7 @@ from bot.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-DB_VERSION = 3
+DB_VERSION = 4
 
 
 class CacheService:
@@ -105,6 +105,19 @@ class CacheService:
                     UNIQUE(guild_id, channel_type)
                 )
             """)
+            # Release history (NIEUW v4) — log van alle verstuurde notificaties
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS release_history (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    addon_id     INTEGER NOT NULL,
+                    addon_name   TEXT    NOT NULL,
+                    file_id      INTEGER NOT NULL,
+                    display_name TEXT    NOT NULL DEFAULT \'\',
+                    release_type TEXT    NOT NULL DEFAULT \'Stable\',
+                    notified_at  TEXT    NOT NULL DEFAULT (datetime(\'now\')),
+                    UNIQUE(addon_id, file_id)
+                )
+            """)
             self._migrate(conn)
 
     def _migrate(self, conn: sqlite3.Connection):
@@ -117,9 +130,13 @@ class CacheService:
             log.info("[DB] Migratie v1→v2: watchlist + addon_meta")
         if current < 3:
             log.info("[DB] Migratie v2→v3: download_stats + channel_config")
-        if current < 3 or not row:
+        if current < 3:
+            log.info("[DB] Migratie v2→v3: download_stats + channel_config")
+        if current < 4:
+            log.info("[DB] Migratie v3→v4: release_history")
+        if current < 4 or not row:
             conn.execute(
-                "INSERT OR REPLACE INTO db_meta VALUES ('version','3')"
+                "INSERT OR REPLACE INTO db_meta VALUES ('version','4')"
             )
 
     # ── File cache (bestaand) ──────────────────────────────────────────────────
@@ -366,6 +383,54 @@ class CacheService:
                 (guild_id, channel_type)
             )
         return cur.rowcount > 0
+
+    # ── Release history ───────────────────────────────────────────────────────
+    def release_history_add(
+        self,
+        addon_id:     int,
+        addon_name:   str,
+        file_id:      int,
+        display_name: str = "",
+        release_type: str = "Stable",
+    ) -> bool:
+        """
+        Sla een nieuwe release op in de history.
+        Geeft True als nieuw opgeslagen, False als file_id al bekend was.
+        """
+        try:
+            with self._connect() as conn:
+                conn.execute("""
+                    INSERT INTO release_history
+                      (addon_id, addon_name, file_id, display_name, release_type)
+                    VALUES (?,?,?,?,?)
+                """, (addon_id, addon_name, file_id, display_name, release_type))
+            log.info(f"[DB] History: {addon_name} {display_name} ({release_type}) opgeslagen")
+            return True
+        except sqlite3.IntegrityError:
+            return False  # Al opgeslagen
+
+    def release_history_get(self, limit: int = 10) -> list[dict]:
+        """
+        Haal de laatste N releases op — voor /history command.
+        Gesorteerd: nieuwste eerst.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT addon_name, display_name, release_type, notified_at
+                   FROM release_history
+                   ORDER BY notified_at DESC
+                   LIMIT ?""",
+                (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def release_history_count(self) -> int:
+        """Totaal aantal release notificaties ooit verstuurd."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as c FROM release_history"
+            ).fetchone()
+        return row["c"] if row else 0
 
 # ╔══════════════════════════════════════════════════════════════════════╗
 # ║  File: cache.py │ v2.0.0 │ 2026-06-02                             ║

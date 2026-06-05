@@ -2,77 +2,26 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — launch.py  v1.2.1
+CurseBot — launch.py  v1.3.0
 
-Entry point voor PyInstaller .exe build en directe start via start_cursebot.bat.
+Entry point voor PyInstaller .exe build én directe start via start_cursebot.bat.
 Start bot als daemon-thread, UI in de main thread.
 
-WIJZIGINGEN v1.2.1:
-  - Auto-installer: ontbrekende packages worden automatisch geïnstalleerd
-  - Crash loop fix: ImportError stopt de restart loop, installeert en herstart
-  - customtkinter, Pillow, aiohttp, requests gecontroleerd bij elke start
+WIJZIGINGEN v1.3.0:
+  - _check_and_fix_packages(): runtime package check vóór alles
+    Werkt zowel vanuit .exe (_internal/pip) als vanuit .venv
+    Installeert stille ontbrekende packages zonder crash of herstart-loop
+  - Splash console venster toont install-voortgang bij EXE start
+  - Alle overige logica ongewijzigd
+
+WIJZIGINGEN v1.2.0:
+  - BotManager klasse: beheert bot-thread lifecycle (start / stop / restart)
+  - UI kan bot herstarten via BotManager.start() zonder app te sluiten
+  - Gedeeld BotManager-object beschikbaar via bot_manager module-global
+  - Geen dubbele asyncio loops: elke start maakt een verse event loop
 """
 import sys
 import subprocess
-import os
-
-# ── AUTO-INSTALLER (voor alle andere imports) ──────────────────────────────────
-# Vereiste packages — worden automatisch geïnstalleerd als ze ontbreken
-REQUIRED_PACKAGES = {
-    "customtkinter": "customtkinter",
-    "PIL":           "Pillow",
-    "aiohttp":       "aiohttp",
-    "requests":      "requests",
-}
-
-def _ensure_packages():
-    missing = []
-    for import_name, pip_name in REQUIRED_PACKAGES.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            missing.append((import_name, pip_name))
-
-    if not missing:
-        return True  # Alles OK
-
-    print("\n" + "="*50)
-    print("  CurseBot — Ontbrekende packages gevonden")
-    print("="*50)
-    for imp, pip in missing:
-        print(f"  Ontbreekt: {imp}  (pip install {pip})")
-    print()
-
-    all_ok = True
-    for imp, pip in missing:
-        print(f"  [INSTALL] {pip}...", end=" ", flush=True)
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", pip, "--quiet", "--no-warn-script-location"],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print("✓")
-        else:
-            print(f"✗ MISLUKT")
-            print(f"    Fout: {result.stderr.strip()[:200]}")
-            all_ok = False
-
-    if all_ok:
-        print("\n  [OK] Alle packages geïnstalleerd — herstart...")
-        print("="*50 + "\n")
-        # Herstart hetzelfde script — packages zijn nu beschikbaar
-        os.execv(sys.executable, [sys.executable] + sys.argv)
-    else:
-        print("\n  [FOUT] Installatie mislukt.")
-        print("  Oplossing: open Command Prompt en typ:")
-        print(f"    pip install {' '.join(p for _, p in missing)}")
-        print("="*50)
-        input("\n  Druk ENTER om te sluiten...")
-        sys.exit(1)
-
-_ensure_packages()
-# ── EINDE AUTO-INSTALLER ───────────────────────────────────────────────────────
-
 import threading
 import asyncio
 import time
@@ -81,12 +30,131 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# Werkmap corrigeren bij .exe start (PyInstaller frozen mode)
+# ── Werkmap corrigeren bij .exe start ─────────────────────────────────────────
+# PyInstaller frozen mode: sys.executable = pad naar CurseBot.exe
+# We willen dat de werkmap de map IS waar de .exe staat (naast cache.db, .env)
 if getattr(sys, "frozen", False):
+    import os
     os.chdir(Path(sys.executable).parent)
 
 
-# ── BotManager ─────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# PACKAGE CHECK — draait vóór alles, ook vóór tkinter import
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Volledige lijst van wat CurseBot nodig heeft
+# Formaat: (import_naam, pip_naam, minimale_versie_string)
+_REQUIRED = [
+    ("discord",        "discord.py>=2.4.0",          "discord.py"),
+    ("httpx",          "httpx>=0.27.0",               "httpx"),
+    ("pydantic",       "pydantic>=2.7.0",             "pydantic"),
+    ("pydantic_settings", "pydantic-settings>=2.3.0", "pydantic-settings"),
+    ("flask",          "flask>=3.0.0",                "flask"),
+    ("flask_cors",     "flask-cors>=4.0.0",           "flask-cors"),
+    ("customtkinter",  "customtkinter>=5.2.0",        "customtkinter"),
+    ("pystray",        "pystray>=0.19.0",             "pystray"),
+    ("PIL",            "Pillow>=10.0.0",              "Pillow"),
+    ("keyring",        "keyring>=24.0.0",             "keyring"),
+    ("dotenv",         "python-dotenv>=1.0.0",        "python-dotenv"),
+]
+
+
+def _check_and_fix_packages() -> bool:
+    """
+    Controleer alle vereiste packages. Installeer ontbrekende stil via pip.
+
+    Werkt in drie contexten:
+      1. Vanuit .venv  (start_cursebot.bat) — pip is in .venv/Scripts/pip
+      2. Vanuit .exe   (PyInstaller frozen) — pip zit in _internal/
+      3. Vanuit systeem Python              — pip is globaal beschikbaar
+
+    Geeft True terug als alles OK is (ook na installatie).
+    Geeft False terug als een kritiek package niet geïnstalleerd kon worden.
+    """
+    missing = []
+
+    for import_name, pip_spec, label in _REQUIRED:
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing.append((pip_spec, label))
+
+    if not missing:
+        return True  # alles aanwezig, snel pad
+
+    # ── Bepaal het juiste pip-executable ──────────────────────────────────────
+    if getattr(sys, "frozen", False):
+        # EXE modus — pip zit naast de exe in _internal/
+        exe_dir  = Path(sys.executable).parent
+        pip_exec = exe_dir / "_internal" / "pip"
+        if not pip_exec.exists():
+            # Fallback: gebruik sys.executable zelf als -m pip
+            pip_cmd = [sys.executable, "-m", "pip"]
+        else:
+            pip_cmd = [str(pip_exec)]
+    else:
+        # Script modus — gebruik dezelfde Python die nu draait
+        pip_cmd = [sys.executable, "-m", "pip"]
+
+    # ── Installeer elk missend package ────────────────────────────────────────
+    failed = []
+    for pip_spec, label in missing:
+        print(f"[CurseBot] Ontbrekend: {label} — installeren...", flush=True)
+        try:
+            result = subprocess.run(
+                pip_cmd + ["install", pip_spec, "--quiet", "--disable-pip-version-check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                print(f"[CurseBot] ✓ {label} geïnstalleerd", flush=True)
+            else:
+                print(f"[CurseBot] ✗ {label} mislukt: {result.stderr.strip()[:120]}", flush=True)
+                failed.append(label)
+        except subprocess.TimeoutExpired:
+            print(f"[CurseBot] ✗ {label} timeout na 120s", flush=True)
+            failed.append(label)
+        except Exception as e:
+            print(f"[CurseBot] ✗ {label} fout: {e}", flush=True)
+            failed.append(label)
+
+    if failed:
+        print(
+            f"\n[CurseBot] WAARSCHUWING: {len(failed)} package(s) konden niet worden "
+            f"geïnstalleerd: {', '.join(failed)}\n"
+            f"           Sommige functies werken mogelijk niet.",
+            flush=True,
+        )
+        # Alleen kritiek als discord of pydantic ontbreekt — de rest is degradable
+        critical = {"discord.py", "pydantic", "pydantic-settings", "httpx"}
+        if any(f in critical for f in failed):
+            return False
+
+    return True
+
+
+# ── Voer package check uit vóór ALLE andere imports ───────────────────────────
+# Dit is bewust buiten een if __name__ == "__main__" blok — ook bij import
+# als module moet de check kunnen draaien (bijv. bij eerste EXE start).
+_packages_ok = _check_and_fix_packages()
+
+if not _packages_ok:
+    print(
+        "\n[CurseBot] FATAAL: Kritieke packages ontbreken en konden niet worden "
+        "geïnstalleerd.\n"
+        "           Draai FIX_PYTHON.bat of installeer handmatig:\n"
+        "           pip install discord.py pydantic pydantic-settings httpx\n",
+        flush=True,
+    )
+    # Wacht even zodat gebruiker het bericht kan lezen voor het venster sluit
+    time.sleep(5)
+    sys.exit(1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BOTMANAGER
+# ══════════════════════════════════════════════════════════════════════════════
 
 class BotManager:
     """
@@ -103,18 +171,20 @@ class BotManager:
     """
 
     def __init__(self):
-        self._thread:      threading.Thread | None = None
-        self._lock         = threading.Lock()
-        self._stop_event   = threading.Event()
+        self._thread:    threading.Thread | None = None
+        self._lock       = threading.Lock()
+        self._stop_event = threading.Event()
 
     @property
     def is_running(self) -> bool:
-        return (
-            self._thread is not None
-            and self._thread.is_alive()
-        )
+        """Geeft True als de bot-thread actief is en nog leeft."""
+        return self._thread is not None and self._thread.is_alive()
 
     def start(self) -> bool:
+        """
+        Start de bot in een nieuwe daemon-thread.
+        Geeft True terug als succesvol gestart, False als al actief.
+        """
         with self._lock:
             if self.is_running:
                 log.warning("[BotManager] Bot draait al — start genegeerd")
@@ -131,6 +201,10 @@ class BotManager:
             return True
 
     def stop(self) -> bool:
+        """
+        Stuur een stop-signaal naar de bot via STATS.stop_requested.
+        Geeft True terug als signaal verstuurd, False als bot al gestopt is.
+        """
         if not self.is_running:
             log.warning("[BotManager] Bot draait niet — stop genegeerd")
             return False
@@ -147,10 +221,12 @@ class BotManager:
         return True
 
     def wait_until_stopped(self, timeout: float = 10.0):
+        """Blokkeer tot bot gestopt is (max timeout seconden)."""
         if self._thread:
             self._thread.join(timeout=timeout)
 
     def _run(self):
+        """Interne thread-functie. Maakt een verse event loop per start."""
         try:
             from bot.main import main as bot_main
 
@@ -176,16 +252,19 @@ class BotManager:
             log.info("[BotManager] Bot-thread gestopt")
 
 
-# ── Module-global BotManager ───────────────────────────────────────────────────
+# ── Module-global BotManager ──────────────────────────────────────────────────
+# Gedeeld object — zowel launch.py als ui/app.py importeren dit
 bot_manager = BotManager()
 
 
-# ── Start functies ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# START FUNCTIES
+# ══════════════════════════════════════════════════════════════════════════════
 
 def start_ui():
     """
     Start de CustomTkinter UI in de main thread.
-    Packages zijn gegarandeerd aanwezig dankzij _ensure_packages() bovenaan.
+    Toont setup wizard als verplichte keys ontbreken.
     """
     import customtkinter as ctk
 
@@ -206,12 +285,25 @@ def start_ui():
 
 
 if __name__ == "__main__":
+    # Bot starten vóór UI — UI gebruikt bot_manager om status te tonen
     bot_manager.start()
+
+    # UI in main thread (tkinter vereist main thread)
     start_ui()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: launch.py │ v1.2.1 │ 2026-06-05                            ║
-# ║  Fix: auto-installer voor ontbrekende packages (customtkinter etc) ║
-# ║  Fix: crash loop gestopt — ImportError nu netjes afgehandeld       ║
-# ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
+# ║                         FILE CARD                                    ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  File         : launch.py                                           ║
+# ║  Role         : Core Entry Point                                    ║
+# ║  Version      : 1.3.0                                               ║
+# ║  Created      : 2026-06-02                                          ║
+# ║  Last Updated : 2026-06-05                                          ║
+# ║  Status       : Updated                                             ║
+# ║  Notes        : Runtime package check — nooit meer Pillow loop      ║
+# ╠══════════════════════════════════════════════════════════════════════╣
+# ║  Created by Dieouwe                                                  ║
+# ║  🌐 www.dieouwe.nl          ⚔️  www.slayeralliance.com              ║
+# ║  📦 curseforge.com/members/dieouwe/projects                         ║
+# ║  💬 discord.gg/y8Pu5qsEbQ                                           ║
 # ╚══════════════════════════════════════════════════════════════════════╝

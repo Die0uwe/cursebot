@@ -1,80 +1,66 @@
-# CurseBot Changelog
+# CurseBot — Changelog
+
+## v2.5.0 — 2026-06-05
+
+### Release Monitor — Volledige Detectie
+
+**Nieuw**
+- `bot/cogs/curseforge.py` v3.0.0 — volledig herbouwd
+  - Detecteert updates voor ALLE addons: eigen addons én watchlist van alle guilds
+  - `release_history` logging — persistente log van elke verstuurd embed
+  - Multi-guild notificaties via `channel_config` per release type
+  - WAF backoff: 403 detectie met 1m → 5m → 1u wachten
+  - Eerste-registratie logica: geen spam bij herstart
+  - `/check` force support via `STATS.force_check`
+  - `_passes_filter()` — stable/beta/alpha/sb/all filter per watchlist item
+- `bot/services/cache.py` v4 (DB_VERSION=4)
+  - `release_history` tabel toegevoegd
+  - `release_history_add()`, `release_history_get()`, `release_history_count()`
+  - Automatische migratie v3→v4 bij startup
+
+### UI — Header Patch Geïntegreerd
+
+**Nieuw**
+- `ui/app.py` v2.4.0 — volledig herschreven
+  - Header met knoppen op één lijn via `pack(side="left")` — nooit meer verkeerde uitlijning
+  - Alle 5 knoppen volledig geïmplementeerd: Stop, Cache, Herstart, Check, Update
+  - Stop/Cache vragen bevestiging via modale dialog
+  - Herstart doet stop → 2s wacht → start in aparte thread
+  - Live poll loop via `after()` — thread-safe, elke seconde
+  - Status indicator (●) live gekoppeld aan `STATS.bot_online`
+  - Uptime timer in header
+  - 6 stat-cards op dashboard: uptime, servers, addons, releases, watchlist, interval
+  - Laatste/volgende check timing
+  - Live logbox (laatste 30 regels) + volledig logboek tab
+  - `gaming.tools` footer hyperlink
+  - Modaal bevestigingsvenster voor destructieve acties
+
+### Fixes & Infra
+
+**Fix**
+- `start_cursebot.bat` — Pillow herstart-loop opgelost
+  - Pillow check *binnen* de `.venv` vóór loop start
+  - Duidelijke foutmelding als `.venv` ontbreekt of beschadigd is
+  - Toont Python versie bij elke start
+- `requirements.txt` v2.5.0 — volledig: flask-cors, Pillow, keyring, python-dotenv toegevoegd
+- `updater.py` v1.3.0 — MANAGED_FILES compleet
+  - `ui/app.py`, `ui/setup_wizard.py`, `ui/__init__.py` toegevoegd
+  - `bot/cogs/help.py`, `bot/services/key_manager.py` toegevoegd
+  - `launch.py`, `FIX_PYTHON.bat` toegevoegd
+  - Python versie check bij elke update run
+
+**Nieuw**
+- `FIX_PYTHON.bat` — herstel tool na Python versiewijziging
+  - Verwijdert oude `.venv`, maakt nieuwe aan met huidige Python
+  - Valideert Python 3.10+ vereiste
+  - Verifieert Pillow na installatie
+- `env.example` — toegevoegd aan repo (stond alleen lokaal)
+
+---
 
 ## v2.3.0 — 2026-06-03
 
-### Sprint 3C — Addon Thumbnails + Handleiding Redesign
-
-**Nieuw**
-- `Mijn addons` tab: addon logo thumbnails via PIL (48×48, zelfde als CF Browser)
-- Downloads K/M formattering in addons tab (1.2K / 4.5M)
-- Summary-regel per addon in addons tab
-- Watch knop met toast-bevestiging in addons tab
-- `CurseBot_Handleiding_v2.3.html`: volledig redesign
-  - 40% korter — geen brede donkere vlakken
-  - Compact hero met logo naast tekst
-  - Sticky navigatiebalk
-  - Feature cards 2-kolom grid
-  - Screenshots hover-zoom + lightbox
-  - Commands in tabel
-  - Troubleshoot compact
-
----
-
-## v2.2.2 — 2026-06-03
-
-### Sprint 3B — Systeemvak + Logo in Header
-
-**Nieuw**
-- `LOGOSMALL.png` als logo in header (36×36, links van CurseBot tekst)
-- Systeemvak (pystray): minimize → tray icoon verschijnt
-  - Dubbelklik: venster herstellen
-  - Rechtsklik menu: Openen · Bot starten/stoppen · Afsluiten
-  - Graceful fallback als pystray niet beschikbaar
-- `_on_unmap` event: minimize knop → automatisch naar tray
-- `_quit_from_tray`: stopt bot netjes voor afsluiten
-- `requirements.txt`: pystray>=0.19.0 toegevoegd
-- `ui/assets/LOGOSMALL.png` toegevoegd aan repo
-
----
-
-## v2.2.1 — 2026-06-03
-
-### Sprint 3A — /help Command + Watchlist Count
-
-**Nieuw**
-- `/help` slash command: embedded overzicht alle 14 commands
-  - Secties: Setup · Monitoring · Watchlist · Releases · Rechten
-  - Publiek zichtbaar (geen admin), ephemeral
-  - Bot avatar als embed thumbnail
-- `bot/cogs/help.py`: nieuw bestand
-- `BotStats.watchlist_count`: watchlist telt nu mee in dashboard
-- Watchlist stat card toont echte count (was altijd "–")
-- `curseforge.py`: watchlist_count bijwerken na elke discovery
-
----
-
-## v2.2.0 — 2026-06-03
-
-### Sprint 2 — CF Browser Direct API + Thumbnails + Log Kleuren
-
-**Nieuw**
-- CF Browser roept CF API direct aan (onafhankelijk van bot)
-  - 3-laags fallback: CF direct → Flask API → project_list
-- Addon cards in CF Browser: thumbnail via PIL, game version badge
-- Downloads K/M formattering (1.2K / 4.5M)
-- Live log kleurcoding: ERROR=rood · CF=goud · BOT=blauw · OK=groen
-
-### Sprint 1 — UI Groter en Leesbaarder
-
-**Nieuw**
-- Venster 900×620 → 1100×700 (+22% breed)
-- Alle fonts +1px (FONT_TITLE 13→14, FONT_BODY 12→13, FONT_SMALL 10→11)
-- Sidebar 170px → 200px
-- Stat card waarden Consolas 17→20px
-- Live log hoogte 160→220px
-- Nav knoppen height 34→38px
-
-### Kern — CurseBot v2.2.0
+### Security & Setup
 
 **Nieuw**
 - `BotManager`: start/stop/restart bot zonder app sluiten
