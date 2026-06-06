@@ -2,10 +2,13 @@
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
 """
-CurseBot — launch.py  v1.3.0
+CurseBot — launch.py  v1.3.1
 
 Entry point voor PyInstaller .exe build én directe start via start_cursebot.bat.
 Start bot als daemon-thread, UI in de main thread.
+
+WIJZIGINGEN v1.3.1:
+  - CurseBotApp() zonder bot_manager arg (ui/app.py v2.4 interface fix)
 
 WIJZIGINGEN v1.3.0:
   - _check_and_fix_packages(): runtime package check vóór alles
@@ -280,7 +283,7 @@ def start_ui():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("dark-blue")
 
-    app = CurseBotApp(bot_manager=bot_manager)
+    app = CurseBotApp()
     app.mainloop()
 
 
@@ -296,9 +299,9 @@ if __name__ == "__main__":
 # ╠══════════════════════════════════════════════════════════════════════╣
 # ║  File         : launch.py                                           ║
 # ║  Role         : Core Entry Point                                    ║
-# ║  Version      : 1.3.0                                               ║
+# ║  Version      : 1.3.1                                               ║
 # ║  Created      : 2026-06-02                                          ║
-# ║  Last Updated : 2026-06-05                                          ║
+# ║  Last Updated : 2026-06-06                                          ║
 # ║  Status       : Updated                                             ║
 # ║  Notes        : Runtime package check — nooit meer Pillow loop      ║
 # ╠══════════════════════════════════════════════════════════════════════╣
