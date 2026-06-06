@@ -55,6 +55,24 @@ ctk.set_default_color_theme("dark-blue")
 BASE_DIR  = Path(__file__).parent.parent
 API_BASE  = "http://localhost:5000"
 
+def _find_asset(filename: str) -> Path | None:
+    """
+    Zoek een asset-bestand op meerdere locaties.
+    Volgorde: ui/assets/ → root/ → ui/ → cwd/
+    Dit vangt zowel correcte repo-installaties als handmatige kopieën op.
+    """
+    candidates = [
+        BASE_DIR / "ui" / "assets" / filename,   # Correcte repo locatie
+        BASE_DIR / filename,                       # Root map (handmatig geplaatst)
+        Path(__file__).parent / "assets" / filename,  # Relatief aan app.py
+        Path(__file__).parent / filename,          # ui/ map
+        Path.cwd() / filename,                     # Werkmap
+    ]
+    for p in candidates:
+        if p.exists() and p.stat().st_size > 0:
+            return p
+    return None
+
 # Kleurenpalet — Slayer Alliance
 C_BG       = "#0b0d12"
 C_BG2      = "#10131a"
@@ -200,8 +218,8 @@ class CurseBotApp(ctk.CTk):
 
         # Icon
         try:
-            icon_path = BASE_DIR / "ui" / "assets" / "icon.ico"
-            if icon_path.exists():
+            icon_path = _find_asset("icon.ico")
+            if icon_path:
                 self.iconbitmap(str(icon_path))
         except Exception:
             pass
@@ -240,8 +258,8 @@ class CurseBotApp(ctk.CTk):
         # ── Logo afbeelding — LOGOSMALL.png met transparantie fix ─────────────
         try:
             from PIL import Image
-            _logo_path = BASE_DIR / "ui" / "assets" / "LOGOSMALL.png"
-            if _logo_path.exists():
+            _logo_path = _find_asset("LOGOSMALL.png")
+            if _logo_path:
                 _img = Image.open(_logo_path).convert("RGBA")
                 datas = _img.getdata()
                 new_data = []
@@ -462,8 +480,8 @@ class CurseBotApp(ctk.CTk):
         # Gaming Tools logo onderaan sidebar
         try:
             from PIL import Image
-            _gt_path = BASE_DIR / "ui" / "assets" / "gaming_tools.webp"
-            if _gt_path.exists():
+            _gt_path = _find_asset("gaming_tools.webp")
+            if _gt_path:
                 _gt_img = Image.open(_gt_path).convert("RGBA")
                 # Schaal naar sidebar breedte (max 160px breed)
                 _w, _h = _gt_img.size
@@ -1570,8 +1588,8 @@ class CurseBotApp(ctk.CTk):
         # ── Midden: gaming.tools logo ─────────────────────────────────────────
         try:
             from PIL import Image
-            _gt_path = BASE_DIR / "ui" / "assets" / "gaming_tools.webp"
-            if _gt_path.exists():
+            _gt_path = _find_asset("gaming_tools.webp")
+            if _gt_path:
                 _gt_img = Image.open(_gt_path).convert("RGBA")
                 # Schaal zodat hoogte 38px wordt (past in 70px footer)
                 _w, _h = _gt_img.size
@@ -1891,7 +1909,7 @@ class CurseBotApp(ctk.CTk):
         """Tijdelijk statusbericht in de footer."""
         self.ftr_version_lbl.configure(text=msg, text_color=C_GREEN)
         self.after(3000, lambda: self.ftr_version_lbl.configure(
-            text="CurseBot v3.2", text_color=C_TEXT
+            text="CurseBot v3.3", text_color=C_TEXT
         ))
 
     def _on_close(self):
@@ -1938,8 +1956,8 @@ class CurseBotApp(ctk.CTk):
             from PIL import Image
 
             # Logo laden voor tray (256x256 RGBA)
-            _logo_path = BASE_DIR / "ui" / "assets" / "LOGOSMALL.png"
-            if _logo_path.exists():
+            _logo_path = _find_asset("LOGOSMALL.png")
+            if _logo_path:
                 tray_img = Image.open(_logo_path).convert("RGBA").resize(
                     (256, 256), Image.LANCZOS
                 )
@@ -2046,7 +2064,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v3.2.0 │ 2026-06-06                            ║
+# ║  File: ui/app.py │ v3.3.0 │ 2026-06-06                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
