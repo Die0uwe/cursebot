@@ -270,149 +270,153 @@ class CurseBotApp(ctk.CTk):
 
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
-        # Header hoogte 140px — genoeg ruimte voor logo (120px) + 2×2 knopgrid
+        """
+        Header v4.0:
+        ┌─────────────────────────────────────────────────────────────────┐
+        │  [Logo 110px]  CurseBot (28pt)          [Stats ticker strip]   │
+        │                Slayer Alliance Edition                          │
+        │  ● Online                                                       │
+        ├─────────────────────────────────────────────────────────────────┤
+        │  [Stop] [Cache] [Herstart] [Check] [Update]    [uptime ticker]  │
+        └─────────────────────────────────────────────────────────────────┘
+        """
+        # Buitenste container — hoogt 160px voor 2 lagen
         self.hdr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=140,
-            border_width=1, border_color=C_BORDER
+            self, fg_color=C_BG3, corner_radius=0, height=160,
+            border_width=0, border_color=C_BORDER
         )
         self.hdr_frame.pack(fill="x", side="top")
         self.hdr_frame.pack_propagate(False)
 
-        # ── Logo afbeelding — LOGOSMALL.png met transparantie fix ─────────────
+        # ── Bovenste laag: logo + titel + stats ticker ────────────────────────
+        top_row = ctk.CTkFrame(self.hdr_frame, fg_color="transparent", height=110)
+        top_row.pack(fill="x", side="top")
+        top_row.pack_propagate(False)
+
+        # Logo
         try:
             from PIL import Image
             _logo_path = _find_asset("LOGOSMALL.png")
             if _logo_path:
                 _img = Image.open(_logo_path).convert("RGBA")
                 datas = _img.getdata()
-                new_data = []
-                for r, g, b, a in datas:
-                    if r < 30 and g < 30 and b < 30:
-                        new_data.append((r, g, b, 0))
-                    else:
-                        new_data.append((r, g, b, a))
+                new_data = [(r,g,b,0) if r<30 and g<30 and b<30 else (r,g,b,a)
+                            for r,g,b,a in datas]
                 _img.putdata(new_data)
-                _logo_pil = _img.resize((120, 120), Image.LANCZOS)
+                _logo_pil = _img.resize((100, 100), Image.LANCZOS)
                 self._hdr_logo_img = ctk.CTkImage(
-                    light_image=_logo_pil, dark_image=_logo_pil,
-                    size=(120, 120)
+                    light_image=_logo_pil, dark_image=_logo_pil, size=(100, 100)
                 )
-                ctk.CTkLabel(
-                    self.hdr_frame,
-                    image=self._hdr_logo_img,
-                    text="",
-                    fg_color="transparent",
-                    bg_color="transparent"
-                ).pack(side="left", padx=(10, 6), pady=10)
+                ctk.CTkLabel(top_row, image=self._hdr_logo_img, text="",
+                    fg_color="transparent").pack(side="left", padx=(12, 8), pady=8)
         except Exception:
             pass
 
-        # ── Tekst logo + status ────────────────────────────────────────────────
-        title_block = ctk.CTkFrame(self.hdr_frame, fg_color="transparent")
-        title_block.pack(side="left", padx=(0, 20))
+        # Titel blok
+        title_blk = ctk.CTkFrame(top_row, fg_color="transparent")
+        title_blk.pack(side="left", pady=(14, 0))
 
-        self.hdr_logo_lbl = ctk.CTkLabel(
-            title_block, text="CurseBot",
-            font=("Segoe UI", 32, "bold"), text_color=C_GOLD, anchor="w"
-        )
-        self.hdr_logo_lbl.pack(anchor="w", pady=(22, 0))
+        ctk.CTkLabel(title_blk, text="CurseBot",
+            font=("Segoe UI", 28, "bold"), text_color=C_GOLD, anchor="w"
+        ).pack(anchor="w")
+        ctk.CTkLabel(title_blk, text="Slayer Alliance Edition",
+            font=("Segoe UI", 11), text_color=C_MUTED, anchor="w"
+        ).pack(anchor="w", pady=(0,4))
 
-        self.hdr_edition_lbl = ctk.CTkLabel(
-            title_block, text="Slayer Alliance Edition",
-            font=("Segoe UI", 12), text_color=C_MUTED, anchor="w"
-        )
-        self.hdr_edition_lbl.pack(anchor="w")
-
-        # Status dot + label
-        status_row = ctk.CTkFrame(title_block, fg_color="transparent")
-        status_row.pack(anchor="w", pady=(4, 0))
-        self.hdr_status_dot = ctk.CTkLabel(
-            status_row, text="●",
-            font=("Segoe UI", 12), text_color=C_RED, width=16
-        )
-        self.hdr_status_dot.pack(side="left", padx=(0, 4))
-        self.hdr_status_lbl = ctk.CTkLabel(
-            status_row, text="Verbinden...",
-            font=FONT_SMALL, text_color=C_MUTED
-        )
+        status_row = ctk.CTkFrame(title_blk, fg_color="transparent")
+        status_row.pack(anchor="w")
+        self.hdr_status_dot = ctk.CTkLabel(status_row, text="●",
+            font=("Segoe UI", 13), text_color=C_RED, width=16)
+        self.hdr_status_dot.pack(side="left", padx=(0,3))
+        self.hdr_status_lbl = ctk.CTkLabel(status_row, text="Verbinden...",
+            font=FONT_SMALL, text_color=C_MUTED)
         self.hdr_status_lbl.pack(side="left")
 
-        # ── Rechts: uptime + knoppen in 2×2 grid ──────────────────────────────
-        right_block = ctk.CTkFrame(self.hdr_frame, fg_color="transparent")
-        right_block.pack(side="right", padx=(0, 14), pady=10)
+        # ── Stats ticker — rechts in top_row ─────────────────────────────────
+        ticker = ctk.CTkFrame(top_row, fg_color=C_BG2, corner_radius=8)
+        ticker.pack(side="right", padx=14, pady=14, fill="y")
 
-        # Uptime label bovenaan rechts
-        self.hdr_uptime_lbl = ctk.CTkLabel(
-            right_block, text="",
-            font=FONT_MONO_SM, text_color=C_MUTED, anchor="e"
-        )
-        self.hdr_uptime_lbl.pack(anchor="e", pady=(0, 6))
+        ticker_items = [
+            ("dash_tick_addons",    "🔍 Addons",    "–"),
+            ("dash_tick_watchlist", "👁 Watchlist",  "–"),
+            ("dash_tick_guilds",    "🖥 Servers",    "–"),
+            ("dash_tick_releases",  "⚡ Releases",   "–"),
+            ("dash_tick_uptime",    "⏱ Uptime",     "–"),
+            ("dash_tick_interval",  "🔁 Interval",  "–"),
+        ]
+        self._tick_vals = {}
+        for i, (wid, label, default) in enumerate(ticker_items):
+            cell = ctk.CTkFrame(ticker, fg_color="transparent", width=110)
+            cell.grid(row=0, column=i, padx=10, pady=6)
+            ctk.CTkLabel(cell, text=label,
+                font=("Segoe UI", 9), text_color=C_MUTED, anchor="center"
+            ).pack()
+            val = ctk.CTkLabel(cell, text=default,
+                font=("Segoe UI", 14, "bold"), text_color=C_TEXT, anchor="center"
+            )
+            val.pack()
+            self._tick_vals[wid] = val
 
-        # 2×2 knoppenraster
-        btn_grid = ctk.CTkFrame(right_block, fg_color="transparent")
-        btn_grid.pack(anchor="e")
+        # ── Onderste laag: separator + knoppen op 1 rij ───────────────────────
+        ctk.CTkFrame(self.hdr_frame, fg_color=C_BORDER, height=1, corner_radius=0
+        ).pack(fill="x")
 
-        BTN_W = 100
+        btn_row = ctk.CTkFrame(self.hdr_frame, fg_color="transparent", height=48)
+        btn_row.pack(fill="x", side="bottom")
+        btn_row.pack_propagate(False)
+
         BTN_H = 34
+        BTN_W = 108
 
-        # Rij 1: Stop | Cache
-        self.hdr_stop_btn = ctk.CTkButton(
-            btn_grid, text="⏹ Stop",
+        # Knoppen links
+        btn_left = ctk.CTkFrame(btn_row, fg_color="transparent")
+        btn_left.pack(side="left", padx=8, pady=7)
+
+        self.hdr_stop_btn = ctk.CTkButton(btn_left, text="⏹ Stop",
+            font=FONT_SMALL, width=BTN_W, height=BTN_H,
+            fg_color=C_RED, hover_color="#991100", text_color="#ffffff",
+            corner_radius=6, command=self._do_stop)
+        self.hdr_stop_btn.pack(side="left", padx=(0, 4))
+
+        self.hdr_reset_btn = ctk.CTkButton(btn_left, text="✕ Cache",
             font=FONT_SMALL, width=BTN_W, height=BTN_H,
             fg_color=C_BG2, hover_color=C_BG3,
             border_color=C_RED, border_width=1, text_color=C_RED,
-            command=self._do_stop
-        )
-        self.hdr_stop_btn.grid(row=0, column=0, padx=(0, 4), pady=(0, 4))
+            corner_radius=6, command=self._do_reset)
+        self.hdr_reset_btn.pack(side="left", padx=(0, 4))
 
-        self.hdr_reset_btn = ctk.CTkButton(
-            btn_grid, text="✕ Cache",
-            font=FONT_SMALL, width=BTN_W, height=BTN_H,
-            fg_color=C_BG2, hover_color=C_BG3,
-            border_color=C_RED, border_width=1, text_color=C_RED,
-            command=self._do_reset
-        )
-        self.hdr_reset_btn.grid(row=0, column=1, padx=(0, 0), pady=(0, 4))
-
-        # Rij 2: Herstart | Check | Update
-        self.hdr_restart_btn = ctk.CTkButton(
-            btn_grid, text="↺ Herstart",
+        self.hdr_restart_btn = ctk.CTkButton(btn_left, text="↺ Herstart",
             font=FONT_SMALL, width=BTN_W, height=BTN_H,
             fg_color=C_BG2, hover_color=C_BG3,
             border_color=C_GOLD, border_width=1, text_color=C_GOLD,
-            command=self._do_restart
-        )
-        self.hdr_restart_btn.grid(row=1, column=0, padx=(0, 4))
+            corner_radius=6, command=self._do_restart)
+        self.hdr_restart_btn.pack(side="left", padx=(0, 4))
 
-        self.hdr_check_btn = ctk.CTkButton(
-            btn_grid, text="↺ Check",
+        self.hdr_check_btn = ctk.CTkButton(btn_left, text="↺ Check",
             font=FONT_SMALL, width=BTN_W, height=BTN_H,
             fg_color=C_BG2, hover_color=C_BG3,
             border_color=C_BLUE, border_width=1, text_color=C_BLUE,
-            command=self._do_check
-        )
-        self.hdr_check_btn.grid(row=1, column=1)
+            corner_radius=6, command=self._do_check)
+        self.hdr_check_btn.pack(side="left", padx=(0, 4))
 
-        # Update knop — naast het 2x2 grid (breed, gold)
-        self.hdr_update_btn = ctk.CTkButton(
-            right_block, text="↑ Update",
-            font=("Segoe UI", 12, "bold"), width=208, height=BTN_H,
-            fg_color=C_BG2, hover_color=C_BG3,
-            border_color=C_GOLD, border_width=1, text_color=C_GOLD,
-            command=self._do_update
-        )
-        self.hdr_update_btn.pack(anchor="e", pady=(4, 0))
+        self.hdr_update_btn = ctk.CTkButton(btn_left, text="↑ Update",
+            font=("Segoe UI", 12, "bold"), width=BTN_W, height=BTN_H,
+            fg_color=C_GOLD, hover_color=C_GOLD_DIM, text_color="#000000",
+            corner_radius=6, command=self._do_update)
+        self.hdr_update_btn.pack(side="left", padx=(0, 0))
 
-        # Start knop (verborgen bij start — bot draait)
-        self.hdr_start_btn = ctk.CTkButton(
-            btn_grid, text="▶ Start",
+        # Start knop (verborgen)
+        self.hdr_start_btn = ctk.CTkButton(btn_left, text="▶ Start",
             font=FONT_SMALL, width=BTN_W, height=BTN_H,
-            fg_color=C_BG2, hover_color=C_BG3,
-            border_color=C_GREEN, border_width=1, text_color=C_GREEN,
-            command=self._do_start
-        )
-        self.hdr_start_btn.grid(row=0, column=2, padx=(4, 0))
-        self.hdr_start_btn.grid_remove()  # verborgen bij start
+            fg_color=C_GREEN, hover_color="#009933", text_color="#ffffff",
+            corner_radius=6, command=self._do_start)
+        self.hdr_start_btn.pack(side="left", padx=(4, 0))
+        self.hdr_start_btn.pack_forget()
+
+        # Uptime rechts in btn_row
+        self.hdr_uptime_lbl = ctk.CTkLabel(btn_row, text="",
+            font=FONT_MONO_SM, text_color=C_MUTED)
+        self.hdr_uptime_lbl.pack(side="right", padx=14)
 
     # ── BODY ──────────────────────────────────────────────────────────────────
     def _build_body(self):
@@ -664,76 +668,70 @@ class CurseBotApp(ctk.CTk):
             self._make_addon_row(self.addons_list_frame, p, show_add=True)
 
     def _make_addon_row(self, parent, addon: dict, show_add: bool = False):
+        """Addon kaart — grote thumbnail 80px, grotere tekst, duidelijke knoppen."""
         row = ctk.CTkFrame(
-            parent, fg_color=C_BG2, corner_radius=8,
+            parent, fg_color=C_BG2, corner_radius=10,
             border_width=1, border_color=C_BORDER
         )
-        row.pack(fill="x", pady=3)
+        row.pack(fill="x", pady=5)
 
-        # ── Thumbnail (zelfde aanpak als CF Browser) ───────────────────────────
-        # Thumbnail async — placeholder direct, image zodra geladen
+        # ── Thumbnail 80×80 ────────────────────────────────────────────────────
         logo_url = addon.get("logo_url", "")
-        thumb_frame = ctk.CTkFrame(row, fg_color=C_BG3, width=54, height=54,
-                                   corner_radius=6)
-        thumb_frame.pack(side="left", padx=(10, 10), pady=8)
+        thumb_frame = ctk.CTkFrame(row, fg_color=C_BG3, width=80, height=80,
+                                   corner_radius=8)
+        thumb_frame.pack(side="left", padx=(12, 12), pady=10)
         thumb_frame.pack_propagate(False)
-        ctk.CTkLabel(thumb_frame, text="⚡", font=("Segoe UI", 22),
+        ctk.CTkLabel(thumb_frame, text="⚡", font=("Segoe UI", 30),
                      text_color=C_GOLD).pack(expand=True)
         if logo_url:
-            _load_image_async([thumb_frame], logo_url, size=(54, 54), app_ref=self)
+            _load_image_async([thumb_frame], logo_url, size=(80, 80), app_ref=self)
 
         # ── Info ───────────────────────────────────────────────────────────────
         info = ctk.CTkFrame(row, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, pady=8)
+        info.pack(side="left", fill="x", expand=True, pady=10)
 
-        ctk.CTkLabel(
-            info, text=addon.get("name", "?"),
-            font=FONT_BODY, text_color=C_TEXT, anchor="w"
+        ctk.CTkLabel(info, text=addon.get("name", "?"),
+            font=("Segoe UI", 16, "bold"), text_color=C_TEXT, anchor="w"
         ).pack(anchor="w")
 
         dl     = addon.get("downloads", 0)
         author = addon.get("author_name", "") or "dieouwe"
-        # K/M formattering
         dl_str = (f"{dl/1_000_000:.1f}M" if dl >= 1_000_000
-                  else f"{dl/1_000:.1f}K" if dl >= 1_000
-                  else str(dl))
-        ctk.CTkLabel(
-            info, text=f"{author} · {dl_str} downloads",
-            font=FONT_MONO_SM, text_color=C_MUTED, anchor="w"
-        ).pack(anchor="w")
+                  else f"{dl/1_000:.1f}K" if dl >= 1_000 else str(dl))
+        ctk.CTkLabel(info, text=f"{author}  ·  {dl_str} downloads",
+            font=("Segoe UI", 12), text_color=C_MUTED, anchor="w"
+        ).pack(anchor="w", pady=(2, 0))
 
-        # Summary indien beschikbaar
         summary = addon.get("summary", "")
         if summary:
-            ctk.CTkLabel(
-                info,
-                text=summary[:100] + "..." if len(summary) > 100 else summary,
-                font=("Segoe UI", 11), text_color=C_MUTED,
-                anchor="w", wraplength=500, justify="left"
-            ).pack(anchor="w", pady=(1, 0))
+            ctk.CTkLabel(info,
+                text=summary[:130] + "…" if len(summary) > 130 else summary,
+                font=("Segoe UI", 11), text_color="#888899",
+                anchor="w", wraplength=560, justify="left"
+            ).pack(anchor="w", pady=(3, 0))
 
         # ── Knoppen ────────────────────────────────────────────────────────────
+        btn_col = ctk.CTkFrame(row, fg_color="transparent")
+        btn_col.pack(side="right", padx=(0, 12), pady=10)
+
         url = addon.get("url", "")
         if url:
-            ctk.CTkButton(
-                row, text="CF ↗", font=FONT_SMALL,
-                width=52, height=28,
+            ctk.CTkButton(btn_col, text="CF ↗",
+                font=FONT_SMALL, width=80, height=32,
                 fg_color="transparent", hover_color=C_BG3,
                 border_color=C_BLUE, border_width=1, text_color=C_BLUE,
                 corner_radius=6,
                 command=lambda u=url: webbrowser.open(u)
-            ).pack(side="right", padx=(4, 8), pady=8)
+            ).pack(pady=(0, 4))
 
         if show_add:
-            ctk.CTkButton(
-                row, text="+ Watch", font=FONT_SMALL,
-                width=72, height=28,
-                fg_color="transparent", hover_color=C_BG3,
-                border_color=C_GREEN, border_width=1, text_color=C_GREEN,
+            ctk.CTkButton(btn_col, text="+ Watch",
+                font=FONT_SMALL, width=80, height=32,
+                fg_color=C_GOLD, hover_color=C_GOLD_DIM, text_color="#000000",
                 corner_radius=6,
                 command=lambda a=addon: (self._add_to_watchlist(a),
                                          self._toast(f"✓ {a.get('name','?')} toegevoegd"))
-            ).pack(side="right", padx=(0, 4), pady=8)
+            ).pack()
 
     # ── TAB: CF BROWSER ───────────────────────────────────────────────────────
     def _build_tab_browser(self):
@@ -1584,88 +1582,85 @@ class CurseBotApp(ctk.CTk):
 
     # ── FOOTER (wid: ftr_*) ───────────────────────────────────────────────────
     def _build_footer(self):
-        # Footer 70px hoog — genoeg voor gaming.tools logo (40px) + knoppen
+        """
+        Footer v4.0:
+        ┌──────────────────────────────────────────────────────────────────┐
+        │ [GamingTools logo] CurseBot v4.0  │  [CF][Discord][SA][dieouwe] │
+        └──────────────────────────────────────────────────────────────────┘
+        """
         self.ftr_frame = ctk.CTkFrame(
-            self, fg_color=C_BG3, corner_radius=0, height=70,
-            border_width=1, border_color=C_BORDER
+            self, fg_color=C_BG3, corner_radius=0, height=56,
+            border_width=0, border_color=C_BORDER
         )
         self.ftr_frame.pack(fill="x", side="bottom")
         self.ftr_frame.pack_propagate(False)
 
-        # ── Links: versie + sha ───────────────────────────────────────────────
-        left_col = ctk.CTkFrame(self.ftr_frame, fg_color="transparent")
-        left_col.pack(side="left", padx=14, pady=10)
+        # Dunne scheidingslijn boven footer
+        ctk.CTkFrame(self, fg_color=C_BORDER, height=1, corner_radius=0
+        ).pack(fill="x", side="bottom")
 
-        self.ftr_version_lbl = ctk.CTkLabel(
-            left_col, text="CurseBot v3.1",
-            font=("Segoe UI", 13, "bold"), text_color=C_TEXT, anchor="w"
-        )
-        self.ftr_version_lbl.pack(anchor="w")
+        # ── Links: gaming.tools logo + versie ────────────────────────────────
+        left = ctk.CTkFrame(self.ftr_frame, fg_color="transparent")
+        left.pack(side="left", padx=(10, 0), pady=8)
 
-        self.ftr_sha_lbl = ctk.CTkLabel(
-            left_col, text="",
-            font=("Consolas", 10), text_color=C_MUTED, anchor="w"
-        )
-        self.ftr_sha_lbl.pack(anchor="w")
-
-        # ── Midden: gaming.tools logo ─────────────────────────────────────────
         try:
             from PIL import Image
             _gt_path = _find_asset("gaming_tools.webp")
             if _gt_path:
                 _gt_img = Image.open(_gt_path).convert("RGBA")
-                # Schaal zodat hoogte 38px wordt (past in 70px footer)
                 _w, _h = _gt_img.size
-                _new_h = 38
+                _new_h = 36
                 _new_w = int(_w * (_new_h / _h))
                 _gt_pil = _gt_img.resize((_new_w, _new_h), Image.LANCZOS)
                 self._ftr_gt_img = ctk.CTkImage(
-                    light_image=_gt_pil, dark_image=_gt_pil,
-                    size=(_new_w, _new_h)
+                    light_image=_gt_pil, dark_image=_gt_pil, size=(_new_w, _new_h)
                 )
-                gt_btn = ctk.CTkLabel(
-                    self.ftr_frame,
-                    image=self._ftr_gt_img,
-                    text="",
-                    fg_color="transparent",
-                    cursor="hand2"
-                )
-                gt_btn.pack(side="left", expand=True, pady=16)
-                gt_btn.bind("<Button-1>", lambda e: webbrowser.open("https://gaming.tools"))
+                gt_lbl = ctk.CTkLabel(left, image=self._ftr_gt_img, text="",
+                    fg_color="transparent", cursor="hand2")
+                gt_lbl.pack(side="left", padx=(0, 10))
+                gt_lbl.bind("<Button-1>", lambda e: webbrowser.open("https://gaming.tools"))
         except Exception:
-            # Fallback: tekst link
-            gt_lbl = ctk.CTkLabel(
-                self.ftr_frame, text="gaming.tools",
-                font=("Segoe UI", 11), text_color=C_MUTED,
-                cursor="hand2"
-            )
-            gt_lbl.pack(side="left", expand=True)
-            gt_lbl.bind("<Button-1>", lambda e: webbrowser.open("https://gaming.tools"))
+            ctk.CTkLabel(left, text="gaming.tools",
+                font=("Segoe UI", 11), text_color=C_MUTED, cursor="hand2"
+            ).pack(side="left", padx=(0, 8))
 
-        # ── Rechts: Discord + dieouwe.nl knoppen ─────────────────────────────
-        right_col = ctk.CTkFrame(self.ftr_frame, fg_color="transparent")
-        right_col.pack(side="right", padx=10, pady=10)
+        # Versie + sha naast gaming.tools
+        ver_col = ctk.CTkFrame(left, fg_color="transparent")
+        ver_col.pack(side="left")
 
-        ctk.CTkButton(
-            right_col, text="💬 Discord",
-            font=("Segoe UI", 12, "bold"), text_color="#5865F2",
-            fg_color=C_BG2, hover_color=C_BG3,
-            border_color="#5865F2", border_width=1,
-            height=28, width=110, corner_radius=6,
-            command=lambda: webbrowser.open("https://discord.gg/y8Pu5qsEbQ")
-        ).pack(pady=(0, 4))
+        self.ftr_version_lbl = ctk.CTkLabel(ver_col, text="CurseBot v4.0",
+            font=("Segoe UI", 12, "bold"), text_color=C_TEXT, anchor="w")
+        self.ftr_version_lbl.pack(anchor="w")
 
-        ctk.CTkButton(
-            right_col, text="dieouwe.nl",
-            font=("Segoe UI", 12, "bold"), text_color=C_GOLD,
-            fg_color=C_BG2, hover_color=C_BG3,
-            height=28, width=110,
-            border_color="#8B5E1A", border_width=1,
-            corner_radius=6,
-            command=lambda: webbrowser.open("https://www.dieouwe.nl")
-        ).pack()
+        self.ftr_sha_lbl = ctk.CTkLabel(ver_col, text="",
+            font=("Consolas", 9), text_color=C_MUTED, anchor="w")
+        self.ftr_sha_lbl.pack(anchor="w")
 
-    # ── WATCHLIST ACTIES ───────────────────────────────────────────────────────
+        # ── Rechts: website links op 1 rij ────────────────────────────────────
+        right = ctk.CTkFrame(self.ftr_frame, fg_color="transparent")
+        right.pack(side="right", padx=10, pady=10)
+
+        site_links = [
+            ("⚡ CurseForge",    C_GOLD,      "#d4891e",
+             "https://www.curseforge.com/members/dieouwe/projects"),
+            ("💬 Discord",       "#5865F2",    "#3d4fc7",
+             "https://discord.gg/y8Pu5qsEbQ"),
+            ("⚔ Slayer Alliance", C_TEXT,      C_MUTED,
+             "https://www.slayeralliance.com"),
+            ("🌐 dieouwe.nl",    C_TEXT,       C_MUTED,
+             "https://www.dieouwe.nl"),
+            ("📦 GitHub",        C_MUTED,      C_BG,
+             "https://github.com/Die0uwe/cursebot"),
+        ]
+        for label, fg_c, hover_c, url in site_links:
+            ctk.CTkButton(right, text=label,
+                font=("Segoe UI", 11), text_color=fg_c,
+                fg_color="transparent", hover_color=C_BG2,
+                height=30, width=120, corner_radius=4,
+                command=lambda u=url: webbrowser.open(u)
+            ).pack(side="left", padx=2)
+
+        # ── WATCHLIST ACTIES ───────────────────────────────────────────────────────
     def _add_to_watchlist(self, addon: dict):
         data = {
             "guild_id":       self._guild_id,
@@ -1787,18 +1782,18 @@ class CurseBotApp(ctk.CTk):
         """Wissel zichtbaarheid Start/Stop knop op basis van bot-state."""
         try:
             if starting:
-                self.hdr_start_btn.grid_remove()
+                self.hdr_start_btn.pack_forget()
                 self.hdr_stop_btn.configure(state="disabled")
                 self.hdr_status_dot.configure(text_color=C_GOLD)
                 self.hdr_status_lbl.configure(text="Starten...", text_color=C_GOLD)
             elif online:
-                self.hdr_start_btn.grid_remove()
+                self.hdr_start_btn.pack_forget()
                 self.hdr_stop_btn.configure(state="normal")
                 self.hdr_status_dot.configure(text_color=C_GREEN)
                 self.hdr_status_lbl.configure(text="Online", text_color=C_GREEN)
             else:
                 self.hdr_stop_btn.configure(state="disabled")
-                self.hdr_start_btn.grid(row=0, column=2, padx=(4, 0))
+                self.hdr_start_btn.pack(side="left", padx=(4, 0))
                 self.hdr_status_dot.configure(text_color=C_RED)
                 self.hdr_status_lbl.configure(text="Offline", text_color=C_RED)
         except Exception:
@@ -1877,6 +1872,23 @@ class CurseBotApp(ctk.CTk):
             if wid in self.dash_stat_vals:
                 self.dash_stat_vals[wid].configure(text=val)
 
+        # ── Stats ticker in header ────────────────────────────────────────────
+        if hasattr(self, "_tick_vals"):
+            tick_map = {
+                "dash_tick_addons":    str(d.get("projects_tracked","–")),
+                "dash_tick_watchlist": str(wl_count),
+                "dash_tick_guilds":    str(d.get("guilds","–")),
+                "dash_tick_releases":  str(d.get("releases_detected","–")),
+                "dash_tick_uptime":    d.get("uptime","–"),
+                "dash_tick_interval":  f"{d.get('check_interval','–')}m",
+            }
+            for wid, val in tick_map.items():
+                if wid in self._tick_vals:
+                    try:
+                        self._tick_vals[wid].configure(text=val)
+                    except Exception:
+                        pass
+
         # Log — kleur-coded per prefix
         lines = d.get("log_lines", [])
         if lines:
@@ -1932,7 +1944,7 @@ class CurseBotApp(ctk.CTk):
         """Tijdelijk statusbericht in de footer."""
         self.ftr_version_lbl.configure(text=msg, text_color=C_GREEN)
         self.after(3000, lambda: self.ftr_version_lbl.configure(
-            text="CurseBot v3.3", text_color=C_TEXT
+            text="CurseBot v4.0", text_color=C_TEXT
         ))
 
     def _on_close(self):
@@ -2087,7 +2099,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v3.3.0 │ 2026-06-06                            ║
+# ║  File: ui/app.py │ v4.0.0 │ 2026-06-06                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
