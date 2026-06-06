@@ -55,22 +55,45 @@ ctk.set_default_color_theme("dark-blue")
 BASE_DIR  = Path(__file__).parent.parent
 API_BASE  = "http://localhost:5000"
 
+# Aliassen voor bestanden die onder andere namen kunnen voorkomen
+_ASSET_ALIASES = {
+    "gaming_tools.webp": ["gaming_tools.webp", "gt2-1.webp", "gt2.webp",
+                           "gaming-tools.webp", "gamingtools.webp"],
+    "LOGOSMALL.png":     ["LOGOSMALL.png", "logo.png", "logo_small.png",
+                           "LOGO.png", "cursebot_logo.png"],
+    "icon.ico":          ["icon.ico", "cursebot.ico"],
+}
+
+
 def _find_asset(filename: str) -> Path | None:
     """
-    Zoek een asset-bestand op meerdere locaties.
-    Volgorde: ui/assets/ → root/ → ui/ → cwd/
-    Dit vangt zowel correcte repo-installaties als handmatige kopieën op.
+    Zoek een asset-bestand op meerdere locaties en onder aliassen.
+    Volgorde per naam:
+      1. ui/assets/<naam>
+      2. root/<naam>
+      3. images/<naam>       ← gebruikers-images map
+      4. ui/<naam>
+      5. cwd/<naam>
+    Probeert ook aliassen (gaming_tools.webp → gt2-1.webp etc.)
     """
-    candidates = [
-        BASE_DIR / "ui" / "assets" / filename,   # Correcte repo locatie
-        BASE_DIR / filename,                       # Root map (handmatig geplaatst)
-        Path(__file__).parent / "assets" / filename,  # Relatief aan app.py
-        Path(__file__).parent / filename,          # ui/ map
-        Path.cwd() / filename,                     # Werkmap
+    names = _ASSET_ALIASES.get(filename, [filename])
+    search_dirs = [
+        BASE_DIR / "ui" / "assets",        # Correcte repo locatie
+        BASE_DIR,                           # Root map
+        BASE_DIR / "images",               # images/ map (handmatig)
+        Path(__file__).parent / "assets",  # Relatief aan ui/app.py
+        Path(__file__).parent,             # ui/ map zelf
+        Path.cwd() / "ui" / "assets",     # cwd variant
+        Path.cwd(),                        # Werkmap
     ]
-    for p in candidates:
-        if p.exists() and p.stat().st_size > 0:
-            return p
+    for name in names:
+        for d in search_dirs:
+            p = d / name
+            try:
+                if p.exists() and p.stat().st_size > 0:
+                    return p
+            except Exception:
+                continue
     return None
 
 # Kleurenpalet — Slayer Alliance

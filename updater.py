@@ -173,6 +173,9 @@ def check_and_update(base_dir, verbose=True):
     log(f"Nieuwe versie: {local_sha or 'onbekend'} → {remote_sha}")
     updated, failed = [], []
 
+    # Zorg dat ui/assets/ map bestaat (ontbreekt na ZIP-install)
+    (base_dir / "ui" / "assets").mkdir(parents=True, exist_ok=True)
+
     for rel_path in MANAGED_FILES:
         if rel_path in NEVER_UPDATE:
             continue
