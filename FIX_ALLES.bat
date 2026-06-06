@@ -1,29 +1,28 @@
 @echo off
-:: ╔══════════════════════════════════════════════════════════════════════════════╗
-:: ║  CurseBot — Slayer Alliance Edition                                        ║
-:: ║  FIX_ALLES.bat  v2.1 — Reset + download + verificatie                     ║
-:: ║  Pentest: curl-checks, lege-bestand-detectie, nooit .env overschrijven    ║
-:: ╚══════════════════════════════════════════════════════════════════════════════╝
-title CurseBot - FIX ALLES v2.1
+:: ============================================================================
+:: CurseBot -- Slayer Alliance Edition
+:: FIX_ALLES.bat  v2.2 -- Reset + download + verificatie
+:: Fix v2.2: ASCII-only, chcp 437
+:: ============================================================================
+title CurseBot - FIX ALLES v2.2
 color 0C
+chcp 437 >nul
 cls
 
 echo.
-echo  ╔══════════════════════════════════════════════════╗
-echo  ║  CurseBot — Volledige Reset en Update  v2.1     ║
-echo  ╚══════════════════════════════════════════════════╝
+echo  ============================================================
+echo   CurseBot -- Volledige Reset en Update  v2.2
+echo  ============================================================
 echo.
 cd /d "%~dp0"
 
 set DOWNLOAD_ERRORS=0
 set REPO=https://raw.githubusercontent.com/Die0uwe/cursebot/main
 
-:: ── 1. Cache wissen ───────────────────────────────────────────────────────────
 echo  [1/6] Cache wissen...
 for /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" 2>nul
-echo  [OK] Cache gewist
+echo  [OK]   Cache gewist
 
-:: ── 2. Verbinding testen ──────────────────────────────────────────────────────
 echo.
 echo  [2/6] GitHub verbinding testen...
 curl -sf --max-time 10 "%REPO%/requirements.txt" >nul 2>&1
@@ -32,9 +31,8 @@ if %errorlevel% neq 0 (
     echo         Controleer je internet en probeer later opnieuw.
     pause >nul & exit /b 1
 )
-echo  [OK] GitHub bereikbaar
+echo  [OK]   GitHub bereikbaar
 
-:: ── 3. Bot-bestanden downloaden MET verificatie ───────────────────────────────
 echo.
 echo  [3/6] Bot-bestanden downloaden...
 
@@ -61,37 +59,33 @@ call :dl "requirements.txt"               "requirements.txt"
 
 if %DOWNLOAD_ERRORS% gtr 0 (
     echo.
-    echo  [WARN] %DOWNLOAD_ERRORS% bestand^(en^) mislukt.
-    echo         Bot kan instabiel zijn.
+    echo  [WARN] %DOWNLOAD_ERRORS% bestand(en) mislukt -- bot kan instabiel zijn.
 ) else (
-    echo  [OK] Alle bestanden gedownload
+    echo  [OK]   Alle bestanden gedownload
 )
 
-:: ── 4. Update-state resetten ──────────────────────────────────────────────────
 echo.
 echo  [4/6] Update-state resetten...
 if exist .last_commit del .last_commit >nul 2>&1
-echo  [OK] .last_commit gewist
+echo  [OK]   .last_commit gewist
 
-:: ── 5. Dependencies updaten ───────────────────────────────────────────────────
 echo.
 echo  [5/6] Dependencies updaten...
 if not exist ".venv\Scripts\activate.bat" (
-    echo  [WARN] .venv niet gevonden — aanmaken...
+    echo  [WARN] .venv niet gevonden -- aanmaken...
     python -m venv .venv
 )
 call .venv\Scripts\activate.bat 2>nul
 pip install -r requirements.txt --quiet --upgrade
-if %errorlevel% equ 0 (echo  [OK] Packages up-to-date) else (echo  [WARN] Sommige packages niet geupdate)
+if %errorlevel% equ 0 (echo  [OK]   Packages up-to-date) else (echo  [WARN] Sommige packages niet geupdate)
 
-:: ── 6. Klaar ─────────────────────────────────────────────────────────────────
 echo.
-echo  [6/6] Reset voltooid!
+echo  [6/6] Klaar!
 echo.
-echo  ╔══════════════════════════════════════════════════════════╗
-echo  ║  FIX_ALLES KLAAR                                        ║
-echo  ║  Bot start NIET automatisch — kies hieronder            ║
-echo  ╚══════════════════════════════════════════════════════════╝
+echo  ============================================================
+echo   FIX_ALLES KLAAR
+echo   Bot start NIET automatisch -- kies hieronder
+echo  ============================================================
 echo.
 
 choice /C JN /M "  Bot starten via start_cursebot.bat? [J/N]"
@@ -101,7 +95,6 @@ echo.
 pause >nul
 exit /b 0
 
-:: ── Download subroutine ───────────────────────────────────────────────────────
 :dl
 set _L=%~1
 set _R=%~2
@@ -110,14 +103,14 @@ for %%F in ("%_L%") do (
 )
 curl -sf --max-time 25 -o "%_L%" "%REPO%/%_R%" 2>nul
 if %errorlevel% neq 0 (
-    echo  [FOUT] %_R% — download mislukt
+    echo  [FOUT] %_R% -- download mislukt
     set /a DOWNLOAD_ERRORS+=1
     goto :eof
 )
 for %%A in ("%_L%") do (
     if %%~zA equ 0 (
         del "%_L%" >nul 2>&1
-        echo  [FOUT] %_R% — leeg bestand ^(404?^)
+        echo  [FOUT] %_R% -- leeg bestand (404?)
         set /a DOWNLOAD_ERRORS+=1
         goto :eof
     )
@@ -125,13 +118,8 @@ for %%A in ("%_L%") do (
 echo  [OK]   %_R%
 goto :eof
 
-:: ╔══════════════════════════════════════════════════════════════════════╗
-:: ║  File: FIX_ALLES.bat  │  v2.1  │  2026-06-06                      ║
-:: ║  Fix: curl exitcode-check op elk bestand                            ║
-:: ║  Fix: lege-bestand-detectie na download                             ║
-:: ║  Fix: GitHub-bereikbaarheidstest vóór alle downloads                ║
-:: ║  Fix: .env wordt NOOIT gedownload of overschreven                   ║
-:: ║  Fix: bot start niet automatisch na reparatie                       ║
-:: ║  Pentest: geen shell-injection in paden                             ║
-:: ║  Created by DieOuwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
-:: ╚══════════════════════════════════════════════════════════════════════╝
+:: ============================================================================
+:: File: FIX_ALLES.bat  |  v2.2  |  2026-06-06
+:: Fix v2.2: ASCII-only, chcp 437
+:: Created by DieOuwe . www.dieouwe.nl . discord.gg/y8Pu5qsEbQ
+:: ============================================================================
