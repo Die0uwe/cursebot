@@ -1,21 +1,28 @@
 @echo off
 :: ============================================================================
 :: CurseBot -- Slayer Alliance Edition
-:: start_cursebot.bat  v2.2 -- Veilige start met crash-detectie
-:: Fix v2.2: ASCII-only, chcp 437, geen UTF-8 box chars
+:: start_cursebot.bat  v2.3 -- Bootstrap-aware start
+:: Fix v2.3: wist .last_commit voor eerste run zodat updater altijd bootstrapt
 :: ============================================================================
 title CurseBot - Slayer Alliance Edition
 color 0A
-chcp 437 >nul
+chcp 437 >nul 2>&1
 cd /d "%~dp0"
 
 if not exist "requirements.txt" (
-    echo  [FOUT] Verkeerde map -- zorg dat dit bat-bestand in de CurseBot map staat.
+    echo  [FOUT] Verkeerde map -- zet dit bat-bestand in de CurseBot map.
     pause >nul & exit /b 1
 )
 
 set CRASH_COUNT=0
 set MAX_CRASHES=3
+
+:: Eerste run: wis .last_commit zodat updater v1.4 altijd bootstrapt
+:: Dit zorgt dat launch.py en ui/app.py altijd vers zijn na install
+if not exist ".bootstrapped" (
+    if exist ".last_commit" del ".last_commit" >nul 2>&1
+    echo  [INFO] Eerste run -- volledige sync geforceerd
+)
 
 :loop
 cls
@@ -28,7 +35,7 @@ echo  ============================================================
 echo.
 
 if not exist ".venv\Scripts\python.exe" (
-    echo  [FOUT] .venv niet gevonden of beschadigd!
+    echo  [FOUT] .venv niet gevonden!
     echo         Oplossing: Draai CURSEBOT_INSTALL_v2_5.bat
     echo.
     pause >nul & exit /b 1
@@ -41,16 +48,19 @@ if %errorlevel% neq 0 (
     pause >nul & exit /b 1
 )
 
-echo  [..] Update check...
+echo  [..] Update check (bootstrap + sync)...
 python updater.py
 set UPDATER_EXIT=%errorlevel%
 
 if %UPDATER_EXIT% equ 42 (
-    echo  [OK]   Update toegepast -- herstarten...
+    echo  [OK]   Update/bootstrap toegepast -- herstarten...
     for /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" 2>nul
     set CRASH_COUNT=0
     goto loop
 )
+
+:: Markeer dat bootstrap gedaan is
+if not exist ".bootstrapped" echo 1 > ".bootstrapped"
 
 echo  [START] CurseBot starten...
 echo.
@@ -62,6 +72,7 @@ echo  [INFO] launch.py gestopt (exitcode: %LAUNCH_EXIT%)
 
 if %LAUNCH_EXIT% equ 0 (
     echo  [OK]   Bot netjes afgesloten.
+    if exist ".bootstrapped" del ".bootstrapped" >nul 2>&1
     timeout /t 2 /nobreak >nul
     exit /b 0
 )
@@ -77,25 +88,28 @@ if %CRASH_COUNT% geq %MAX_CRASHES% (
     echo   Mogelijke oorzaken:
     echo     1. DISCORD_TOKEN ongeldig of verlopen
     echo     2. CURSEFORGE_API_KEY ongeldig
-    echo     3. Kapotte .venv  --^> CURSEBOT_INSTALL_v2_5.bat
-    echo     4. Missende bestanden --^> FIX_ALLES.bat
+    echo     3. Kapotte .venv  --> CURSEBOT_INSTALL_v2_5.bat
+    echo     4. Missende bestanden --> FIX_ALLES.bat
     echo     5. Zie logs\cursebot.log voor details
     echo  ============================================================
     echo.
+    if exist ".bootstrapped" del ".bootstrapped" >nul 2>&1
     pause >nul & exit /b %LAUNCH_EXIT%
 )
 
 echo  [..] Herstart over 5 seconden... (druk Ctrl+C om te annuleren)
 timeout /t 5
 if %errorlevel% neq 0 (
-    echo  [INFO] Herstart geannuleerd.
-    pause >nul & exit /b 0
+    if exist ".bootstrapped" del ".bootstrapped" >nul 2>&1
+    exit /b 0
 )
 goto loop
 
 :: ============================================================================
-:: File: start_cursebot.bat  |  v2.2  |  2026-06-06
+:: File: start_cursebot.bat  |  v2.3  |  2026-06-06
+:: Fix v2.3: .last_commit wissen op eerste run -> bootstrap altijd actief
+:: Fix v2.3: .bootstrapped marker voor eenmalige full-sync
 :: Fix v2.2: ASCII-only, chcp 437
-:: Fix v2.1: crash-teller, exitcode 0 = stop, Ctrl+C werkt, .venv check
+:: Fix v2.1: crash-teller, exitcode 0 = stop, Ctrl+C werkt
 :: Created by DieOuwe . www.dieouwe.nl . discord.gg/y8Pu5qsEbQ
 :: ============================================================================
