@@ -189,6 +189,46 @@ def api_watchlist_add():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/watchlist/add_batch", methods=["POST"])
+def api_watchlist_add_batch():
+    """Voeg meerdere addons tegelijk toe — gebruikt door Watch All auteur knop in UI."""
+    try:
+        from bot.services.cache import CacheService
+        data   = request.get_json() or {}
+        addons = data.get("addons", [])
+        guild_id = data.get("guild_id", "0")
+        if not addons:
+            return jsonify({"error": "addons lijst vereist"}), 400
+        cache = CacheService()
+        added_count = 0
+        skip_count  = 0
+        for addon in addons:
+            addon_id = addon.get("addon_id") or addon.get("id")
+            if not addon_id:
+                continue
+            added = cache.watchlist_add(
+                guild_id=guild_id,
+                addon_id=int(addon_id),
+                addon_name=addon.get("addon_name") or addon.get("name", ""),
+                addon_slug=addon.get("addon_slug") or addon.get("slug", ""),
+                addon_url=addon.get("addon_url") or addon.get("url", ""),
+                author_name=addon.get("author_name", ""),
+                downloads=addon.get("downloads", 0),
+                logo_url=addon.get("logo_url"),
+                release_filter=addon.get("release_filter", "all"),
+                added_by="dashboard_batch",
+            )
+            if added:
+                added_count += 1
+            else:
+                skip_count += 1
+        author = addons[0].get("author_name", "?") if addons else "?"
+        STATS.add_log(f"[UI] Batch watchlist: {added_count} toegevoegd, {skip_count} al aanwezig ({author})")
+        return jsonify({"added": added_count, "skipped": skip_count, "total": len(addons)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/watchlist/remove", methods=["POST"])
 def api_watchlist_remove():
     try:

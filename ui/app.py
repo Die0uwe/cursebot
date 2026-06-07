@@ -271,7 +271,7 @@ class CurseBotApp(ctk.CTk):
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
         """
-        Header v4.0:
+        Header v4.1:
         ┌─────────────────────────────────────────────────────────────────┐
         │  [Logo 110px]  CurseBot (28pt)          [Stats ticker strip]   │
         │                Slayer Alliance Edition                          │
@@ -654,7 +654,7 @@ class CurseBotApp(ctk.CTk):
         self.addons_empty_lbl.pack(pady=40)
 
     def _load_addons_tab(self):
-        # Wis bestaande items
+        """Laad addons gegroepeerd per auteur. Elke groep heeft Watch All knop."""
         for w in self.addons_list_frame.winfo_children():
             w.destroy()
 
@@ -664,8 +664,45 @@ class CurseBotApp(ctk.CTk):
             return
 
         self.addons_empty_lbl.pack_forget()
+
+        # Groepeer op auteur (behoud volgorde eerste verschijning)
+        authors = {}
         for p in projects:
-            self._make_addon_row(self.addons_list_frame, p, show_add=True)
+            author = p.get("author_name", "") or "dieouwe"
+            authors.setdefault(author, []).append(p)
+
+        for author, addons in authors.items():
+            # ── Auteur-sectie header ──────────────────────────────────────────
+            sec_hdr = ctk.CTkFrame(self.addons_list_frame, fg_color="transparent")
+            sec_hdr.pack(fill="x", pady=(14, 4))
+
+            ctk.CTkLabel(sec_hdr,
+                text=f"⚡  {author}",
+                font=("Segoe UI", 14, "bold"), text_color=C_GOLD, anchor="w"
+            ).pack(side="left")
+
+            ctk.CTkLabel(sec_hdr,
+                text=f"{len(addons)} addon{'s' if len(addons) != 1 else ''}",
+                font=("Segoe UI", 11), text_color=C_MUTED, anchor="w"
+            ).pack(side="left", padx=(8, 0), pady=(2, 0))
+
+            # Watch All knop
+            ctk.CTkButton(sec_hdr,
+                text=f"+ Watch All ({len(addons)})",
+                font=("Segoe UI", 12), width=140, height=28,
+                fg_color=C_GOLD, hover_color=C_GOLD_DIM, text_color="#000000",
+                corner_radius=6,
+                command=lambda a=addons, au=author: self._add_author_to_watchlist(au, a)
+            ).pack(side="right")
+
+            # Scheidingslijn
+            ctk.CTkFrame(self.addons_list_frame,
+                fg_color=C_BORDER, height=1, corner_radius=0
+            ).pack(fill="x", pady=(0, 6))
+
+            # Addon rijen
+            for p in addons:
+                self._make_addon_row(self.addons_list_frame, p, show_add=True)
 
     def _make_addon_row(self, parent, addon: dict, show_add: bool = False):
         """Addon kaart — grote thumbnail 80px, grotere tekst, duidelijke knoppen."""
@@ -1583,9 +1620,9 @@ class CurseBotApp(ctk.CTk):
     # ── FOOTER (wid: ftr_*) ───────────────────────────────────────────────────
     def _build_footer(self):
         """
-        Footer v4.0:
+        Footer v4.1:
         ┌──────────────────────────────────────────────────────────────────┐
-        │ [GamingTools logo] CurseBot v4.0  │  [CF][Discord][SA][dieouwe] │
+        │ [GamingTools logo] CurseBot v4.1  │  [CF][Discord][SA][dieouwe] │
         └──────────────────────────────────────────────────────────────────┘
         """
         self.ftr_frame = ctk.CTkFrame(
@@ -1628,7 +1665,7 @@ class CurseBotApp(ctk.CTk):
         ver_col = ctk.CTkFrame(left, fg_color="transparent")
         ver_col.pack(side="left")
 
-        self.ftr_version_lbl = ctk.CTkLabel(ver_col, text="CurseBot v4.0",
+        self.ftr_version_lbl = ctk.CTkLabel(ver_col, text="CurseBot v4.1",
             font=("Segoe UI", 12, "bold"), text_color=C_TEXT, anchor="w")
         self.ftr_version_lbl.pack(anchor="w")
 
@@ -1661,6 +1698,63 @@ class CurseBotApp(ctk.CTk):
             ).pack(side="left", padx=2)
 
         # ── WATCHLIST ACTIES ───────────────────────────────────────────────────────
+    def _add_author_to_watchlist(self, author: str, addons: list):
+        """Voeg alle addons van een auteur in één keer toe aan de watchlist."""
+        if not addons:
+            return
+        names = ", ".join(a.get("name","?") for a in addons[:3])
+        if len(addons) > 3:
+            names += f" +{len(addons)-3}"
+
+        from tkinter import messagebox
+        if not messagebox.askyesno(
+            f"Watch All — {author}",
+            f"Alle {len(addons)} addons van {author} toevoegen aan watchlist?
+
+{names}"
+        ):
+            return
+
+        def task():
+            added_count = 0
+            skip_count  = 0
+            fail_count  = 0
+            for addon in addons:
+                data = {
+                    "guild_id":       self._guild_id,
+                    "addon_id":       addon.get("id"),
+                    "addon_name":     addon.get("name", ""),
+                    "addon_slug":     addon.get("slug", "") or addon.get("addon_slug", ""),
+                    "addon_url":      addon.get("url", ""),
+                    "author_name":    addon.get("author_name", ""),
+                    "downloads":      addon.get("downloads", 0),
+                    "logo_url":       addon.get("logo_url"),
+                    "release_filter": addon.get("release_filter", "all"),
+                }
+                try:
+                    result = api_post("/api/watchlist/add", data)
+                    if result:
+                        if result.get("added"):
+                            added_count += 1
+                        else:
+                            skip_count += 1
+                    else:
+                        fail_count += 1
+                except Exception:
+                    fail_count += 1
+
+            parts = []
+            if added_count:
+                parts.append(f"✓ {added_count} toegevoegd")
+            if skip_count:
+                parts.append(f"{skip_count} al aanwezig")
+            if fail_count:
+                parts.append(f"⚠ {fail_count} mislukt")
+            msg = "  ·  ".join(parts) if parts else "Geen wijzigingen"
+            self.after(0, lambda: self._toast(msg))
+
+        threading.Thread(target=task, daemon=True).start()
+
     def _add_to_watchlist(self, addon: dict):
         data = {
             "guild_id":       self._guild_id,
@@ -1944,7 +2038,7 @@ class CurseBotApp(ctk.CTk):
         """Tijdelijk statusbericht in de footer."""
         self.ftr_version_lbl.configure(text=msg, text_color=C_GREEN)
         self.after(3000, lambda: self.ftr_version_lbl.configure(
-            text="CurseBot v4.0", text_color=C_TEXT
+            text="CurseBot v4.1", text_color=C_TEXT
         ))
 
     def _on_close(self):
@@ -2099,7 +2193,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v4.0.0 │ 2026-06-06                            ║
+# ║  File: ui/app.py │ v4.1.0 │ 2026-06-06                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
