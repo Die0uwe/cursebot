@@ -68,28 +68,58 @@ _ASSET_ALIASES = {
 def _find_asset(filename: str) -> Path | None:
     """
     Zoek een asset-bestand op meerdere locaties en onder aliassen.
-    Volgorde per naam:
-      1. ui/assets/<naam>
-      2. root/<naam>
-      3. images/<naam>       ← gebruikers-images map
-      4. ui/<naam>
-      5. cwd/<naam>
-    Probeert ook aliassen (gaming_tools.webp → gt2-1.webp etc.)
+
+    Werkt in DRIE contexten:
+      1. Script (.venv / direct): zoekt in ui/assets/, root, images/
+      2. Frozen EXE (PyInstaller): zoekt eerst in sys._MEIPASS (ingebakken assets)
+         dan naast de .exe (dist/CurseBot/) voor door gebruiker toegevoegde assets
+      3. Ontwikkeling: zoekt relatief aan dit bestand
+
+    Volgorde:
+      [EXE] _MEIPASS/ui/assets/  ← ingebakken door spec (altijd aanwezig)
+      [EXE] _MEIPASS/            ← root van _internal
+      [EXE] exe_dir/ui/assets/   ← naast .exe gezette assets
+      [EXE] exe_dir/images/      ← images map naast .exe
+      [EXE] exe_dir/             ← root naast .exe
+      [Script] BASE_DIR/ui/assets/
+      [Script] BASE_DIR/
+      [Script] BASE_DIR/images/
+      [Script] ui/app.py dir/assets/
+      [Script] cwd/
     """
+    import sys
     names = _ASSET_ALIASES.get(filename, [filename])
-    search_dirs = [
-        BASE_DIR / "ui" / "assets",        # Correcte repo locatie
-        BASE_DIR,                           # Root map
-        BASE_DIR / "images",               # images/ map (handmatig)
-        Path(__file__).parent / "assets",  # Relatief aan ui/app.py
-        Path(__file__).parent,             # ui/ map zelf
-        Path.cwd() / "ui" / "assets",     # cwd variant
-        Path.cwd(),                        # Werkmap
-    ]
+
+    search_dirs = []
+
+    # ── Frozen EXE (PyInstaller) ──────────────────────────────────────────────
+    if getattr(sys, "frozen", False):
+        meipass = Path(getattr(sys, "_MEIPASS", ""))
+        exe_dir = Path(sys.executable).parent
+        search_dirs = [
+            meipass / "ui" / "assets",   # ingebakken ui/assets (via spec)
+            meipass / "images",           # ingebakken images/ (via spec)
+            meipass,                      # root van _internal
+            exe_dir / "ui" / "assets",   # naast .exe gezet door gebruiker
+            exe_dir / "images",           # images map naast .exe
+            exe_dir,                      # root naast .exe (cwd)
+        ]
+    else:
+        # ── Script modus (.venv / dev) ────────────────────────────────────────
+        search_dirs = [
+            BASE_DIR / "ui" / "assets",       # Correcte repo locatie
+            BASE_DIR,                           # Root map
+            BASE_DIR / "images",               # images/ map
+            Path(__file__).parent / "assets",  # Relatief aan ui/app.py
+            Path(__file__).parent,             # ui/ map
+            Path.cwd() / "ui" / "assets",     # cwd variant
+            Path.cwd(),                        # Werkmap
+        ]
+
     for name in names:
         for d in search_dirs:
-            p = d / name
             try:
+                p = d / name
                 if p.exists() and p.stat().st_size > 0:
                     return p
             except Exception:
@@ -271,7 +301,7 @@ class CurseBotApp(ctk.CTk):
     # ── HEADER (wid: hdr_*) ───────────────────────────────────────────────────
     def _build_header(self):
         """
-        Header v4.1:
+        Header v4.2:
         ┌─────────────────────────────────────────────────────────────────┐
         │  [Logo 110px]  CurseBot (28pt)          [Stats ticker strip]   │
         │                Slayer Alliance Edition                          │
@@ -1620,9 +1650,9 @@ class CurseBotApp(ctk.CTk):
     # ── FOOTER (wid: ftr_*) ───────────────────────────────────────────────────
     def _build_footer(self):
         """
-        Footer v4.1:
+        Footer v4.2:
         ┌──────────────────────────────────────────────────────────────────┐
-        │ [GamingTools logo] CurseBot v4.1  │  [CF][Discord][SA][dieouwe] │
+        │ [GamingTools logo] CurseBot v4.2  │  [CF][Discord][SA][dieouwe] │
         └──────────────────────────────────────────────────────────────────┘
         """
         self.ftr_frame = ctk.CTkFrame(
@@ -1665,7 +1695,7 @@ class CurseBotApp(ctk.CTk):
         ver_col = ctk.CTkFrame(left, fg_color="transparent")
         ver_col.pack(side="left")
 
-        self.ftr_version_lbl = ctk.CTkLabel(ver_col, text="CurseBot v4.1",
+        self.ftr_version_lbl = ctk.CTkLabel(ver_col, text="CurseBot v4.2",
             font=("Segoe UI", 12, "bold"), text_color=C_TEXT, anchor="w")
         self.ftr_version_lbl.pack(anchor="w")
 
@@ -2038,7 +2068,7 @@ class CurseBotApp(ctk.CTk):
         """Tijdelijk statusbericht in de footer."""
         self.ftr_version_lbl.configure(text=msg, text_color=C_GREEN)
         self.after(3000, lambda: self.ftr_version_lbl.configure(
-            text="CurseBot v4.1", text_color=C_TEXT
+            text="CurseBot v4.2", text_color=C_TEXT
         ))
 
     def _on_close(self):
@@ -2193,7 +2223,7 @@ if __name__ == "__main__":
     main()
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: ui/app.py │ v4.1.0 │ 2026-06-06                            ║
+# ║  File: ui/app.py │ v4.2.0 │ 2026-06-06                            ║
 # ║  Native CustomTkinter UI — header/sidebar/grid/footer              ║
 # ║  Created by Dieouwe · www.dieouwe.nl · discord.gg/y8Pu5qsEbQ      ║
 # ╚══════════════════════════════════════════════════════════════════════╝
