@@ -1,9 +1,9 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""CurseBot — updater.py  v1.6.0 — auto-updater via GitHub API.
+"""CurseBot — updater.py  v1.7.0 — auto-updater via GitHub API.
 
-CHANGES v1.6.0:
+CHANGES v1.7.0:
   - BOOTSTRAP STAP: updater.py update zichzelf EERST voor alles
     Als updater zichzelf heeft bijgewerkt -> exit 42 (herstart via bat)
     Zo draait altijd de nieuwste updater met de volledige MANAGED_FILES
@@ -87,9 +87,54 @@ FORCE_UPDATE = {
 
 NEVER_UPDATE = {".env", "cache.db", ".last_commit"}
 
+# Bestanden die NOOIT worden verwijderd, ook niet als ze niet in MANAGED_FILES staan.
+# User-data, config, eigen bestanden blijven altijd intact.
+NEVER_DELETE = {
+    ".env",
+    "cache.db",
+    ".last_commit",
+    ".bootstrapped",
+    "cursebot.spec",        # eigen build config
+    "env.example",
+    ".env.example",
+    "CHANGELOG.md",
+    "README.md",
+    "INSTALLATIE_WINDOWS.md",
+    "licence",
+    "Procfile",
+    "railway.toml",
+    "render.yaml",
+    "find_author_id.py",
+    "cursebot_setup.html",
+    "cursebot_translation_editor.html",
+}
+
+# Mappen die volledig worden overgeslagen bij cleanup
+# (nooit aanraken, ook al staat er niets in MANAGED_FILES)
+NEVER_DELETE_DIRS = {
+    ".venv",
+    ".git",
+    "logs",
+    "images",
+    "tests",
+    "licence",
+    "dashboard_static",  # eigen static files
+}
+
+# Extensies die door gebruiker geplaatst kunnen zijn — nooit verwijderen
+SAFE_EXTENSIONS = {
+    ".db", ".sqlite", ".sqlite3",   # databases
+    ".env",                          # config
+    ".log",                          # logs
+    ".png", ".webp", ".ico",         # assets (user kan eigen toevoegen)
+    ".jpg", ".jpeg", ".gif",
+    ".pdf", ".html",                 # handleidingen
+    ".zip", ".exe",                  # eigen builds
+}
+
 
 def _get(url, timeout=15):
-    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.6"})
+    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.7"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -154,6 +199,96 @@ def _bootstrap_self(base_dir, verbose=True):
     except Exception as e:
         log(f"Bootstrap schrijven mislukt: {e}")
         return False
+
+
+def cleanup_obsolete(base_dir, verbose=True):
+    """
+    Verwijder bestanden die niet meer in MANAGED_FILES staan.
+
+    Logica:
+    - Scan ALLEEN mappen die door de updater beheerd worden: bot/, ui/, root .py/.bat
+    - Sla ALLES over dat in NEVER_DELETE of NEVER_DELETE_DIRS staat
+    - Sla bestanden over met SAFE_EXTENSIONS (databases, afbeeldingen, logs etc.)
+    - Vraag NOOIT iets te verwijderen zonder log — alles wordt gerapporteerd
+    - Verwijder alleen als bestand NIET in MANAGED_FILES staat EN geen beschermde extensie heeft
+
+    Geeft lijst terug van verwijderde bestanden.
+    """
+    def log(msg):
+        if verbose:
+            print(f"[UPDATER] {msg}", flush=True)
+
+    # Bouw een set van alle bestanden die MOGEN bestaan
+    allowed = set(MANAGED_FILES) | NEVER_DELETE
+
+    # Welke root-bestanden controleren we?
+    # Alleen .py, .bat, .vbs, .txt, .md in de root — geen willekeurige files
+    MANAGED_EXTENSIONS_ROOT = {".py", ".bat", ".vbs", ".txt"}
+
+    # Mappen die volledig door updater beheerd worden
+    MANAGED_DIRS = {"bot", "ui"}
+
+    removed = []
+
+    # ── Scan root ─────────────────────────────────────────────────────────────
+    try:
+        for item in base_dir.iterdir():
+            if item.is_dir():
+                continue  # Mappen apart afhandelen
+            rel = item.name
+
+            # Nooit aanraken
+            if rel in NEVER_DELETE:
+                continue
+            if item.suffix.lower() in SAFE_EXTENSIONS:
+                continue
+            if item.suffix.lower() not in MANAGED_EXTENSIONS_ROOT:
+                continue  # Onbekende extensie in root — overslaan
+
+            # Check of dit bestand in MANAGED_FILES staat
+            if rel not in allowed:
+                try:
+                    item.unlink()
+                    log(f"  🗑 Verouderd verwijderd: {rel}")
+                    removed.append(rel)
+                except Exception as e:
+                    log(f"  ! Kon niet verwijderen {rel}: {e}")
+    except Exception as e:
+        log(f"  ! Root scan fout: {e}")
+
+    # ── Scan bot/ en ui/ ──────────────────────────────────────────────────────
+    for managed_dir in MANAGED_DIRS:
+        dir_path = base_dir / managed_dir
+        if not dir_path.exists():
+            continue
+
+        try:
+            for item in dir_path.rglob("*"):
+                if item.is_dir():
+                    continue
+                if "__pycache__" in item.parts:
+                    continue
+
+                rel = str(item.relative_to(base_dir)).replace("\", "/")
+
+                # Nooit aanraken
+                if item.name in NEVER_DELETE:
+                    continue
+                if item.suffix.lower() in SAFE_EXTENSIONS:
+                    continue
+
+                # Check of in MANAGED_FILES
+                if rel not in allowed:
+                    try:
+                        item.unlink()
+                        log(f"  🗑 Verouderd verwijderd: {rel}")
+                        removed.append(rel)
+                    except Exception as e:
+                        log(f"  ! Kon niet verwijderen {rel}: {e}")
+        except Exception as e:
+            log(f"  ! {managed_dir}/ scan fout: {e}")
+
+    return removed
 
 
 def check_and_update(base_dir, verbose=True):
@@ -263,7 +398,7 @@ if __name__ == "__main__":
     sys.exit(42 if changed else 0)
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: updater.py  │  v1.6.0  │  2026-06-06                       ║
+# ║  File: updater.py  │  v1.7.0  │  2026-06-06                       ║
 # ║  Fix: bootstrap — updater.py update zichzelf EERST (exit 42)       ║
 # ║  Fix: FORCE_UPDATE set — launch.py/ui/app.py altijd vers           ║
 # ║  Add: bot/i18n/* aan MANAGED_FILES                                 ║
