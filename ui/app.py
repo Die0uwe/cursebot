@@ -1737,11 +1737,15 @@ class CurseBotApp(ctk.CTk):
             names += f" +{len(addons)-3}"
 
         from tkinter import messagebox
+        preview = "\n".join(a.get("name","?") for a in addons[:3])
+        if len(addons) > 3:
+            preview += f" +{len(addons)-3} meer"
+        msg_body = "Alle {} addons van {} toevoegen aan watchlist?\n\n{}".format(
+            len(addons), author, preview
+        )
         if not messagebox.askyesno(
-            f"Watch All — {author}",
-            f"Alle {len(addons)} addons van {author} toevoegen aan watchlist?
-
-{names}"
+            "Watch All - {}".format(author),
+            msg_body
         ):
             return
 
