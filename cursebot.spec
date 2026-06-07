@@ -1,9 +1,9 @@
 # ==============================================================================
-# CurseBot — PyInstaller spec bestand  v3.0.0
+# CurseBot — PyInstaller spec bestand  v3.0.1
 # Gebruik: pyinstaller cursebot.spec --clean --noconfirm
 # Output: dist/CurseBot/CurseBot.exe
 #
-# Wijzigingen v3.0.0:
+# Wijzigingen v3.0.1:
 #   - bot.cogs.help toegevoegd (nieuw cog)
 #   - bot.i18n.* toegevoegd (lokalisatie systeem)
 #   - pystray toegevoegd (systeemvak tray icon)
@@ -40,11 +40,12 @@ if Path('bot/i18n/strings.json').exists():
 if Path('images').exists():
     datas.append(('images', 'images'))
 
-# env voorbeeld
-for env_f in ['.env.example', 'env.example']:
-    if Path(env_f).exists():
+# env voorbeeld — check BEIDE varianten expliciet, voeg alleen toe als echt aanwezig
+import os
+for env_f in ['env.example', '.env.example']:
+    if os.path.isfile(env_f) and os.path.getsize(env_f) > 0:
         datas.append((env_f, '.'))
-        break
+        break  # maar één toevoegen
 
 a = Analysis(
     ['launch.py'],
@@ -193,7 +194,7 @@ coll = COLLECT(
 )
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: cursebot.spec  │  v3.0.0  │  2026-06-07                    ║
+# ║  File: cursebot.spec  │  v3.0.1  │  2026-06-07                    ║
 # ║  Fix: bot.cogs.help + bot.i18n.* + pystray                        ║
 # ║  Fix: gaming_tools.webp + LOGOSMALL.png als optionele datas       ║
 # ║  Fix: images/ map meegenomen als aanwezig                          ║
