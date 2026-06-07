@@ -269,7 +269,7 @@ def cleanup_obsolete(base_dir, verbose=True):
                 if "__pycache__" in item.parts:
                     continue
 
-                rel = str(item.relative_to(base_dir)).replace("\", "/")
+                rel = str(item.relative_to(base_dir)).replace("\\", "/")
 
                 # Nooit aanraken
                 if item.name in NEVER_DELETE:
