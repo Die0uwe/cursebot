@@ -1,9 +1,9 @@
 # ==============================================================================
 # Copyright (C) 2026  DieOuwe — GNU GPL v3
 # ==============================================================================
-"""CurseBot — updater.py  v1.5.0 — auto-updater via GitHub API.
+"""CurseBot — updater.py  v1.6.0 — auto-updater via GitHub API.
 
-CHANGES v1.5.0:
+CHANGES v1.6.0:
   - BOOTSTRAP STAP: updater.py update zichzelf EERST voor alles
     Als updater zichzelf heeft bijgewerkt -> exit 42 (herstart via bat)
     Zo draait altijd de nieuwste updater met de volledige MANAGED_FILES
@@ -59,6 +59,14 @@ MANAGED_FILES = [
     "requirements.txt",
     "start_cursebot.bat",
     "FIX_PYTHON.bat",
+    "FIX_ALLES.bat",
+    "FIX_ASSETS.bat",
+    "HEALTH_CHECK.bat",
+    "CURSEBOT_INSTALL_v2_5.bat",
+    "BUILD_EXE.bat",
+    "PUSH.bat",
+    "start_cursebot_hidden.vbs",
+    "LEES_MIJ.txt",
     "updater.py",
     "ui/assets/LOGOSMALL.png",
     "ui/assets/gaming_tools.webp",
@@ -81,7 +89,7 @@ NEVER_UPDATE = {".env", "cache.db", ".last_commit"}
 
 
 def _get(url, timeout=15):
-    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.5"})
+    req = urllib.request.Request(url, headers={"User-Agent": "CurseBot-Updater/1.6"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -255,7 +263,7 @@ if __name__ == "__main__":
     sys.exit(42 if changed else 0)
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  File: updater.py  │  v1.5.0  │  2026-06-06                       ║
+# ║  File: updater.py  │  v1.6.0  │  2026-06-06                       ║
 # ║  Fix: bootstrap — updater.py update zichzelf EERST (exit 42)       ║
 # ║  Fix: FORCE_UPDATE set — launch.py/ui/app.py altijd vers           ║
 # ║  Add: bot/i18n/* aan MANAGED_FILES                                 ║
